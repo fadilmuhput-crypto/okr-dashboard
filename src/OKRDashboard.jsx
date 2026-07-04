@@ -99,6 +99,16 @@ const calcKRProgress = (kr) => {
   return raw;
 };
 
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return isMobile;
+};
+
 const confColor = (c) => c >= 0.7 ? C.green : c >= 0.5 ? C.yellow : C.red;
 const confLabel = (c) => c >= 0.7 ? 'On Track' : c >= 0.5 ? 'Watch' : 'At Risk';
 const confEmoji = (c) => c >= 0.7 ? '🟢' : c >= 0.5 ? '🟡' : '🔴';
@@ -334,6 +344,7 @@ function KRCard({ kr, onUpdate, onDelete, onAddIni, onUpdateIni, onDeleteIni, ac
   const [expanded, setExpanded] = useState(false);
   const [showAddIni, setShowAddIni] = useState(false);
   const [deleteIniId, setDeleteIniId] = useState(null);
+  const isMobile = useIsMobile();
 
   const progressRaw = calcKRProgress(kr);
   const progress = Math.round(progressRaw);
@@ -370,7 +381,7 @@ function KRCard({ kr, onUpdate, onDelete, onAddIni, onUpdateIni, onDeleteIni, ac
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16, alignItems: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1fr)', gap: isMobile ? 12 : 16, alignItems: 'center' }}>
           <div>
             {kr.type === 'percent' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.muted, marginBottom: 6, flexWrap: 'wrap' }}>
@@ -895,10 +906,12 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
   const empty = objective && !objective.objective && krs.length === 0 && objectives.length === 1;
   const isMaxKR = krs.length >= 5;
   const isDirector = state.viewMode === 'exec';
+  const isMobile = useIsMobile();
+  const padX = isMobile ? 14 : 24;
 
   return (
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: C.bg, minHeight: '100vh', color: C.text, fontSize: 14 }}>
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: isMobile ? '12px 14px' : '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 16, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 28, height: 28, background: C.primary, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Target size={16} color={C.white} /></div>
           <div>
@@ -934,13 +947,13 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       {storageWarning && <div style={{ padding: '8px 24px', background: C.yellowSoft, color: '#8B6914', fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
 
       {isDirector ? (
-        <div style={{ padding: '20px 24px 40px 24px' }}>
+        <div style={{ padding: `20px ${padX}px 40px ${padX}px` }}>
           <DirectorView state={state} onJump={jumpTo} />
           <div style={{ marginTop: 16, fontSize: 11, color: C.muted, textAlign: 'center' }}>Click any Objective above to open it in Working View.</div>
         </div>
       ) : (
         <>
-          <div style={{ padding: '20px 24px 0 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ padding: `20px ${padX}px 0 ${padX}px`, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'inline-flex', background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, alignSelf: 'flex-start' }}>
               {[{ id: 'personal', label: 'Personal', color: C.primary }, { id: 'team', label: 'Team', color: C.secondary }].map(s => {
                 const active = state.activeScope === s.id;
@@ -961,15 +974,15 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
             />
           </div>
 
-          <div style={{ padding: '16px 24px 40px 24px' }}>
+          <div style={{ padding: `16px ${padX}px 40px ${padX}px` }}>
             {loaded && empty ? (
               <EmptyState onAdd={() => setShowAddKR(true)} onSample={loadSample} accentColor={accentColor} />
             ) : objective ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
                   <div style={{ padding: '18px 20px', borderTop: `3px solid ${accentColor}` }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, justifyContent: 'space-between' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 12 : 16, justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row' }}>
+                      <div style={{ flex: 1, minWidth: 0, width: isMobile ? '100%' : undefined }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>
                           {state.activeScope === 'personal' ? 'Personal' : 'Team'} Objective <span style={{ fontWeight: 400, textTransform: 'none', color: C.muted, letterSpacing: 0 }}>— aspirational, not a task</span>
                         </div>
@@ -979,13 +992,13 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                           <InlineEdit value={objective.whyNow} onChange={(v) => updateObjField('whyNow', v)} placeholder="Why does this matter this quarter specifically?" fontSize={13} color={C.muted} multiline />
                         </div>
                       </div>
-                      <div style={{ minWidth: 170, textAlign: 'right' }}>
+                      <div style={{ minWidth: isMobile ? 0 : 170, textAlign: isMobile ? 'left' : 'right' }}>
                         <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Overall confidence</div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'flex-end', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: isMobile ? 'flex-start' : 'flex-end', gap: 6 }}>
                           <span style={{ fontSize: 32, fontWeight: 700, color: confColor(overallConf), lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{krs.length ? overallConf.toFixed(2) : '—'}</span>
                           {krs.length > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: confColor(overallConf) }}>{confLabel(overallConf)}</span>}
                         </div>
-                        <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: isMobile ? 'flex-start' : 'flex-end', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 11, color: C.muted }}>{krs.length}/5 KRs</span>
                           <span style={{ fontSize: 11, color: C.muted }}>· {allInitiatives.length} initiatives</span>
                           {atRiskCount > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: C.red, padding: '1px 6px', borderRadius: 3, background: C.redSoft }}><AlertTriangle size={10} /> {atRiskCount} at risk</span>}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, RotateCcw, Sparkles, FileText, Check, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, LayoutDashboard, ListChecks, ArrowRight } from 'lucide-react';
+import OnboardingWizard from './OnboardingWizard.jsx';
 
 const STORAGE_KEY = 'okr-dashboard-state-v4';
 
@@ -682,7 +683,7 @@ function DirectorView({ state, onJump }) {
   );
 }
 
-function EmptyState({ onAdd, onSample, accentColor }) {
+function EmptyState({ onAdd, onSample, onWizard, accentColor }) {
   return (
     <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '48px 24px', textAlign: 'center' }}>
       <div style={{ width: 48, height: 48, borderRadius: 12, background: C.redSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Target size={22} color={C.primary} /></div>
@@ -691,7 +692,10 @@ function EmptyState({ onAdd, onSample, accentColor }) {
         Start with an aspirational Objective, then add up to 5 measurable Key Results — each one breaks down into the Key Initiatives that drive it. You can add more Objectives anytime.
       </div>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button onClick={onAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: accentColor, color: C.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Plus size={14} /> Add your first Key Result</button>
+        {onWizard && (
+          <button onClick={onWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: accentColor, color: C.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Target size={14} /> Mulai dengan Panduan</button>
+        )}
+        <button onClick={onAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: onWizard ? C.white : accentColor, color: onWizard ? C.text : C.white, border: onWizard ? `1px solid ${C.border}` : 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Plus size={14} /> Add your first Key Result</button>
         <button onClick={onSample} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Sparkles size={14} /> Load sample data</button>
       </div>
     </div>
@@ -709,6 +713,7 @@ export default function OKRDashboard() {
   const [checkInDraft, setCheckInDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const [storageWarning, setStorageWarning] = useState('');
+  const [showWizard, setShowWizard] = useState(false);
   const saveTimer = useRef(null);
 
   useEffect(() => {
@@ -726,6 +731,13 @@ export default function OKRDashboard() {
       console.warn('OKR dashboard: could not load saved state', e);
     } finally {
       setLoaded(true);
+      // Wizard onboarding: tampil otomatis untuk first-time user (belum ada
+      // data tersimpan dan belum pernah menyelesaikan/melewati wizard)
+      try {
+        if (!localStorage.getItem(STORAGE_KEY) && !localStorage.getItem('okr-wizard-done')) {
+          setShowWizard(true);
+        }
+      } catch { /* private mode */ }
     }
   }, []);
 
@@ -822,6 +834,21 @@ export default function OKRDashboard() {
     personal: { objectives: SAMPLE_PERSONAL_OBJECTIVES, activeObjectiveId: SAMPLE_PERSONAL_OBJECTIVES[0].id },
     team: { objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
   }));
+
+  const completeWizard = (obj) => {
+    setState(s => ({
+      ...s,
+      activeScope: 'personal',
+      personal: { objectives: [obj], activeObjectiveId: obj.id }
+    }));
+    try { localStorage.setItem('okr-wizard-done', '1'); } catch (e) {}
+    setShowWizard(false);
+  };
+
+  const skipWizard = () => {
+    try { localStorage.setItem('okr-wizard-done', '1'); } catch (e) {}
+    setShowWizard(false);
+  };
 
   const handleReset = () => {
     setState({ ...DEFAULT_STATE, personal: { objectives: [{ id: 'po1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'po1' }, team: { objectives: [{ id: 'to1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'to1' } });
@@ -976,7 +1003,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
           <div style={{ padding: `16px ${padX}px 40px ${padX}px` }}>
             {loaded && empty ? (
-              <EmptyState onAdd={() => setShowAddKR(true)} onSample={loadSample} accentColor={accentColor} />
+              <EmptyState onAdd={() => setShowAddKR(true)} onSample={loadSample} onWizard={state.activeScope === 'personal' ? () => setShowWizard(true) : undefined} accentColor={accentColor} />
             ) : objective ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
@@ -1084,6 +1111,8 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
           </div>
         </div>
       </Modal>
+
+      {showWizard && <OnboardingWizard onComplete={completeWizard} onSkip={skipWizard} />}
     </div>
   );
 }

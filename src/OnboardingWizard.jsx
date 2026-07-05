@@ -1,0 +1,255 @@
+import React, { useState } from 'react';
+import { Target, ArrowRight, ArrowLeft, Check, Plus, X, Gauge } from 'lucide-react';
+
+const C = {
+  primary: '#E72D33',
+  green: '#1E8449',
+  yellow: '#D68910',
+  red: '#C0392B',
+  text: '#1F1F1F',
+  muted: '#7A7A7A',
+  border: '#E0E0E0',
+  bg: '#FAFAFA',
+  white: '#FFFFFF',
+  redSoft: '#FBEAEA',
+};
+
+const confColor = (c) => c >= 0.7 ? C.green : c >= 0.5 ? C.yellow : C.red;
+const confLabel = (c) => c >= 0.7 ? 'On Track' : c >= 0.5 ? 'Watch' : 'At Risk';
+
+const OBJECTIVE_EXAMPLES = [
+  'Jadi kreator yang dipercaya audiens di industriku',
+  'Bangun kebiasaan sehat yang bertahan sepanjang tahun',
+  'Jadikan produk kami touchpoint paling dipercaya pelanggan',
+];
+
+const inputStyle = {
+  width: '100%', padding: '11px 13px', fontSize: 14, border: `1px solid ${C.border}`,
+  borderRadius: 7, fontFamily: 'inherit', outline: 'none', background: C.white,
+  color: C.text, boxSizing: 'border-box',
+};
+const labelStyle = {
+  display: 'block', fontSize: 11, fontWeight: 700, color: C.muted,
+  textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
+};
+
+export default function OnboardingWizard({ onComplete, onSkip }) {
+  const [step, setStep] = useState(1);
+  const [objective, setObjective] = useState('');
+  const [whyNow, setWhyNow] = useState('');
+  const [krs, setKrs] = useState([{ label: '', baseline: '', target: '', unit: '' }]);
+  const [confidences, setConfidences] = useState([]);
+  const [err, setErr] = useState('');
+
+  const validKrs = krs.filter(k => k.label.trim() && k.target !== '');
+
+  const next = () => {
+    setErr('');
+    if (step === 1) {
+      if (!objective.trim()) { setErr('Tulis dulu Objective-mu — satu kalimat aspiratif.'); return; }
+      setStep(2);
+    } else if (step === 2) {
+      if (validKrs.length === 0) { setErr('Isi minimal 1 Key Result (nama + angka target).'); return; }
+      setConfidences(validKrs.map(() => 0.5));
+      setStep(3);
+    }
+  };
+
+  const finish = () => {
+    const cleanKrs = validKrs.map((k, i) => ({
+      id: `po1k${i + 1}`,
+      label: k.label.trim(),
+      type: 'percent',
+      baseline: Number(k.baseline) || 0,
+      target: Number(k.target),
+      current: Number(k.baseline) || 0,
+      unit: k.unit.trim(),
+      confidence: confidences[i] ?? 0.5,
+      initiatives: [],
+    }));
+    onComplete({
+      id: 'po1',
+      objective: objective.trim(),
+      whyNow: whyNow.trim(),
+      krs: cleanKrs,
+    });
+  };
+
+  const updateKr = (idx, field, value) =>
+    setKrs(prev => prev.map((k, i) => i === idx ? { ...k, [field]: value } : k));
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,15,15,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
+      <div style={{ background: C.white, borderRadius: 14, maxWidth: 560, width: '100%', maxHeight: '92vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 24px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 26, height: 26, background: C.primary, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Target size={14} color={C.white} />
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>OKR pertamamu — 3 langkah</span>
+            </div>
+            <button onClick={onSkip} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12, fontFamily: 'inherit', textDecoration: 'underline' }}>
+              Lewati, isi sendiri
+            </button>
+          </div>
+          {/* Progress */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+            {[1, 2, 3].map(n => (
+              <div key={n} style={{ flex: 1, height: 4, borderRadius: 2, background: n <= step ? C.primary : C.border, transition: 'background 0.3s' }} />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 24px' }}>
+
+          {/* Step 1 — Objective */}
+          {step === 1 && (
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px', color: C.text }}>
+                Apa tujuan besarmu kuartal ini?
+              </h2>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: '0 0 18px' }}>
+                Satu kalimat aspiratif — sesuatu yang bikin bangga walau tercapai 70%. Bukan daftar tugas.
+              </p>
+              <label style={labelStyle}>Objective</label>
+              <textarea
+                autoFocus
+                value={objective}
+                onChange={(e) => setObjective(e.target.value)}
+                placeholder="contoh: Jadi kreator yang dipercaya audiens di industriku"
+                rows={2}
+                style={{ ...inputStyle, resize: 'none', lineHeight: 1.5 }}
+              />
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 18px' }}>
+                {OBJECTIVE_EXAMPLES.map(ex => (
+                  <button key={ex} onClick={() => setObjective(ex)} style={{ fontSize: 11, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {ex.length > 42 ? ex.slice(0, 42) + '…' : ex}
+                  </button>
+                ))}
+              </div>
+              <label style={labelStyle}>Kenapa sekarang? <span style={{ fontWeight: 400, textTransform: 'none' }}>(opsional)</span></label>
+              <input
+                value={whyNow}
+                onChange={(e) => setWhyNow(e.target.value)}
+                placeholder="contoh: Kuartal ini window terbaik sebelum kompetitor launching"
+                style={inputStyle}
+              />
+            </div>
+          )}
+
+          {/* Step 2 — Key Results */}
+          {step === 2 && (
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px', color: C.text }}>
+                Gimana kamu tahu berhasil?
+              </h2>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: '0 0 18px' }}>
+                Tulis 1-3 Key Result yang <strong style={{ color: C.text }}>terukur angka</strong>. Dari berapa, ke berapa.
+              </p>
+              {krs.map((k, i) => (
+                <div key={i} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 10, position: 'relative' }}>
+                  {krs.length > 1 && (
+                    <button onClick={() => setKrs(prev => prev.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: 2, display: 'flex' }}>
+                      <X size={14} />
+                    </button>
+                  )}
+                  <label style={labelStyle}>Key Result {i + 1}</label>
+                  <input
+                    value={k.label}
+                    onChange={(e) => updateKr(i, 'label', e.target.value)}
+                    placeholder="contoh: Tambah subscriber newsletter"
+                    style={{ ...inputStyle, marginBottom: 10 }}
+                  />
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 90px' }}>
+                      <label style={labelStyle}>Dari</label>
+                      <input type="number" value={k.baseline} onChange={(e) => updateKr(i, 'baseline', e.target.value)} placeholder="0" style={inputStyle} />
+                    </div>
+                    <div style={{ flex: '1 1 90px' }}>
+                      <label style={labelStyle}>Target</label>
+                      <input type="number" value={k.target} onChange={(e) => updateKr(i, 'target', e.target.value)} placeholder="1000" style={inputStyle} />
+                    </div>
+                    <div style={{ flex: '1 1 110px' }}>
+                      <label style={labelStyle}>Satuan</label>
+                      <input value={k.unit} onChange={(e) => updateKr(i, 'unit', e.target.value)} placeholder="subscriber" style={inputStyle} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {krs.length < 3 && (
+                <button onClick={() => setKrs(prev => [...prev, { label: '', baseline: '', target: '', unit: '' }])} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: 'transparent', color: C.primary, border: `1px dashed ${C.primary}`, borderRadius: 7, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <Plus size={13} /> Tambah KR lagi
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Step 3 — Confidence (aha moment) */}
+          {step === 3 && (
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px', color: C.text, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Gauge size={20} color={C.primary} /> Check-in pertamamu
+              </h2>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: '0 0 18px' }}>
+                Ini yang membedakan dari spreadsheet: tiap minggu kamu jawab satu pertanyaan jujur — <strong style={{ color: C.text }}>seberapa yakin kamu bakal mencapainya?</strong> Geser slidernya.
+              </p>
+              {validKrs.map((k, i) => {
+                const c = confidences[i] ?? 0.5;
+                return (
+                  <div key={i} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: C.text }}>{k.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: confColor(c), whiteSpace: 'nowrap' }}>
+                        {confLabel(c)} · {c.toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range" min={0} max={1} step={0.05} value={c}
+                      onChange={(e) => setConfidences(prev => prev.map((v, idx) => idx === i ? parseFloat(e.target.value) : v))}
+                      style={{ width: '100%', accentColor: confColor(c), cursor: 'pointer' }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: C.muted, marginTop: 2 }}>
+                      <span>0 — gak mungkin</span>
+                      <span>0.5 — fifty-fifty</span>
+                      <span>1 — pasti tercapai</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: 12, color: C.muted, background: C.redSoft, borderRadius: 8, padding: '10px 12px', lineHeight: 1.5 }}>
+                💡 Mulai di <strong>0.5</strong> itu normal dan sehat. Kalau dari awal sudah 1.0, targetmu mungkin kurang ambisius.
+              </div>
+            </div>
+          )}
+
+          {err && (
+            <div style={{ marginTop: 14, padding: '9px 12px', background: C.redSoft, color: C.red, fontSize: 12.5, borderRadius: 6 }}>
+              {err}
+            </div>
+          )}
+
+          {/* Nav buttons */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 22 }}>
+            {step > 1 ? (
+              <button onClick={() => { setErr(''); setStep(step - 1); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 13.5, fontWeight: 600, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <ArrowLeft size={14} /> Kembali
+              </button>
+            ) : <span />}
+            {step < 3 ? (
+              <button onClick={next} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', fontSize: 13.5, fontWeight: 700, border: 'none', background: C.primary, color: C.white, borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Lanjut <ArrowRight size={14} />
+              </button>
+            ) : (
+              <button onClick={finish} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', fontSize: 13.5, fontWeight: 700, border: 'none', background: C.green, color: C.white, borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <Check size={15} /> Selesai — Mulai Tracking
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

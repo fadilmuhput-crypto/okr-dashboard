@@ -1,5 +1,5 @@
 import React from 'react';
-import { Target, LayoutDashboard, FileText, ArrowRight, Check, Gauge } from 'lucide-react';
+import { Target, ListChecks, LayoutDashboard, FileText, ArrowRight, Check, Gauge } from 'lucide-react';
 
 const C = {
   primary: '#E72D33',
@@ -36,14 +36,14 @@ function CTAButton({ children, big }) {
 
 function ConfidenceDemo() {
   const rows = [
-    { label: 'Improve customer retention', conf: 0.75, color: C.green, tag: 'On Track' },
-    { label: 'Launch referral program', conf: 0.55, color: C.yellow, tag: 'Watch' },
-    { label: 'Cut churn below 3%', conf: 0.35, color: C.red, tag: 'At Risk' },
+    { label: 'Naikkan retensi pelanggan', conf: 0.75, color: C.green, tag: 'On Track' },
+    { label: 'Luncurkan fitur referral', conf: 0.55, color: C.yellow, tag: 'Watch' },
+    { label: 'Kurangi churn ke bawah 3%', conf: 0.35, color: C.red, tag: 'At Risk' },
   ];
   return (
     <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, boxShadow: '0 12px 40px rgba(0,0,0,0.08)', flex: '1 1 320px', maxWidth: 460 }}>
       <div style={{ fontSize: 10.5, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
-        Week 6 Check-in — Confidence
+        Check-in Minggu 6 — Confidence
       </div>
       {rows.map((r) => (
         <div key={r.label} style={{ marginBottom: 16 }}>
@@ -59,7 +59,7 @@ function ConfidenceDemo() {
         </div>
       ))}
       <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4 }}>
-        Update weekly. Catch problems before they become a missed quarter.
+        Update tiap minggu. Lihat masalah sebelum jadi kegagalan kuartal.
       </div>
     </div>
   );
@@ -71,32 +71,32 @@ export default function Landing() {
   const features = [
     {
       icon: Gauge, color: C.primary,
-      title: 'Weekly confidence check-ins',
-      desc: 'Progress numbers can lie — confidence doesn\'t. Every Key Result carries a 0–1 confidence score you update weekly, so at-risk KRs surface long before the deadline does.',
+      title: 'Confidence check-in mingguan',
+      desc: 'Angka progress bisa menipu — keyakinan tidak. Setiap Key Result punya skor confidence 0–1 yang kamu update tiap minggu, jadi KR yang berisiko meleset kelihatan lebih awal.',
     },
     {
       icon: LayoutDashboard, color: C.secondary,
       title: 'Director View',
-      desc: 'One screen for every Objective — personal and team. Instantly see what\'s on track, what needs attention, and which initiatives are running late.',
+      desc: 'Satu layar untuk semua Objective — personal & tim. Langsung terlihat mana yang on track, mana yang perlu diperhatikan, dan inisiatif mana yang delayed.',
     },
     {
       icon: FileText, color: C.green,
-      title: 'One-click check-in reports',
-      desc: 'Generate a complete weekly report in markdown — every KR\'s status, what\'s at risk, what\'s delayed — ready to paste into Slack, Notion, or an email to your boss.',
+      title: 'Laporan check-in sekali klik',
+      desc: 'Generate laporan mingguan lengkap dalam format markdown — status semua KR, yang at-risk, yang delayed — siap paste ke Slack, Notion, atau email ke atasan.',
     },
   ];
 
   const steps = [
-    { n: '1', title: 'Write your Objective & Key Results', desc: 'One aspirational Objective, up to 5 measurable KRs, plus the initiatives that drive them.' },
-    { n: '2', title: 'Check in every week', desc: 'Update progress and slide your confidence score — 5 honest minutes a week.' },
-    { n: '3', title: 'Share the status', desc: 'Generate a check-in report and send it to your team. Everyone knows the direction — and the risks.' },
+    { n: '1', title: 'Tulis Objective & Key Results', desc: 'Satu Objective aspiratif, maksimal 5 KR terukur, plus inisiatif pendukungnya.' },
+    { n: '2', title: 'Check-in tiap minggu', desc: 'Update progress dan geser confidence slider — 5 menit per minggu, jujur pada diri sendiri.' },
+    { n: '3', title: 'Bagikan statusnya', desc: 'Generate laporan check-in dan kirim ke tim. Semua orang tahu arah dan risikonya.' },
   ];
 
   const faqs = [
-    { q: 'What are OKRs?', a: 'OKRs (Objectives and Key Results) are the goal-setting framework used by Google, Intel, and thousands of companies: one ambitious Objective broken into 3–5 measurable Key Results, reviewed on a regular cadence.' },
-    { q: 'Is it really free?', a: 'Yes. No account, no credit card. Your OKR data lives in your own browser (localStorage) — it\'s never sent to any server.' },
-    { q: 'How is this different from a spreadsheet?', a: 'Confidence tracking. A spreadsheet records progress numbers, but misses the earliest risk signal there is: how confident the people doing the work actually feel. Plus automatic check-in reports instead of manual copy-paste.' },
-    { q: 'Can I use it with a team?', a: 'Yes — there are Personal and Team scopes, plus a Director View to see everything at once. Multi-user collaboration is on the roadmap.' },
+    { q: 'Apa itu OKR?', a: 'OKR (Objectives and Key Results) adalah kerangka goal-setting yang dipakai Google, Intel, dan ribuan perusahaan: satu Objective ambisius diturunkan jadi 3-5 Key Results terukur, ditinjau secara berkala.' },
+    { q: 'Benar-benar gratis?', a: 'Ya. Tanpa daftar akun, tanpa kartu kredit. Data OKR kamu tersimpan di browser kamu sendiri (localStorage) — tidak dikirim ke server mana pun.' },
+    { q: 'Apa bedanya dengan spreadsheet?', a: 'Confidence tracking. Spreadsheet mencatat angka progress, tapi tidak menangkap keyakinan orang yang mengerjakannya — padahal itu sinyal risiko paling awal. Plus laporan check-in otomatis, bukan copy-paste manual.' },
+    { q: 'Bisa dipakai untuk tim?', a: 'Bisa — ada scope Personal dan Team, plus Director View untuk melihat semuanya sekaligus. Fitur kolaborasi multi-user sedang disiapkan.' },
   ];
 
   return (
@@ -110,28 +110,28 @@ export default function Landing() {
           </div>
           <span style={{ fontSize: 16.5, fontWeight: 700 }}>OKR Dashboard</span>
         </div>
-        <CTAButton>Open App</CTAButton>
+        <CTAButton>Buka App</CTAButton>
       </nav>
 
       {/* Hero */}
       <section style={{ padding: isMobile ? '48px 18px' : '80px 40px', maxWidth: 1080, margin: '0 auto', display: 'flex', gap: isMobile ? 36 : 48, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 400px', minWidth: 0 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: C.primary, background: C.redSoft, padding: '4px 12px', borderRadius: 14, marginBottom: 18 }}>
-            Free · No signup · Data stays in your browser
+            Gratis · Tanpa daftar · Data di browser kamu
           </div>
           <h1 style={{ fontSize: isMobile ? 30 : 42, fontWeight: 800, lineHeight: 1.15, margin: '0 0 16px' }}>
-            The numbers say <span style={{ color: C.green }}>on track</span>.<br />
-            Your team says <span style={{ color: C.red }}>not sure</span>.<br />
-            Which do you believe?
+            Target bilang <span style={{ color: C.green }}>on track</span>.<br />
+            Tim kamu bilang <span style={{ color: C.red }}>gak yakin</span>.<br />
+            Mana yang benar?
           </h1>
           <p style={{ fontSize: isMobile ? 15 : 17, color: C.muted, lineHeight: 1.6, margin: '0 0 28px', maxWidth: 480 }}>
-            An OKR dashboard with <strong style={{ color: C.text }}>weekly confidence check-ins</strong> — track not just progress, but how confident you are of actually hitting it. Risk shows up early, before it becomes a missed quarter.
+            Dashboard OKR dengan <strong style={{ color: C.text }}>confidence check-in mingguan</strong> — ukur bukan cuma progress, tapi seberapa yakin kamu mencapainya. Risiko kelihatan lebih awal, sebelum jadi kegagalan kuartal.
           </p>
-          <CTAButton big>Try It Now — Free</CTAButton>
+          <CTAButton big>Coba Sekarang — Gratis</CTAButton>
           <div style={{ marginTop: 14, fontSize: 12.5, color: C.muted, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> No account</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> No credit card</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> Works instantly</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> Tanpa akun</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> Tanpa kartu kredit</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> Langsung pakai</span>
           </div>
         </div>
         <ConfidenceDemo />
@@ -141,10 +141,10 @@ export default function Landing() {
       <section style={{ background: C.bg, padding: isMobile ? '48px 18px' : '72px 40px' }}>
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
           <h2 style={{ fontSize: isMobile ? 24 : 30, fontWeight: 800, textAlign: 'center', margin: '0 0 10px' }}>
-            Why not just a spreadsheet?
+            Kenapa bukan spreadsheet saja?
           </h2>
           <p style={{ fontSize: 15, color: C.muted, textAlign: 'center', margin: '0 auto 40px', maxWidth: 520 }}>
-            Because spreadsheets capture numbers — and miss the earliest risk signal there is: the confidence of the people doing the work.
+            Karena spreadsheet mencatat angka, tapi tidak menangkap sinyal risiko paling awal: keyakinan orang yang mengerjakannya.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 20 }}>
             {features.map((f) => (
@@ -163,7 +163,7 @@ export default function Landing() {
       {/* How it works */}
       <section style={{ padding: isMobile ? '48px 18px' : '72px 40px', maxWidth: 880, margin: '0 auto' }}>
         <h2 style={{ fontSize: isMobile ? 24 : 30, fontWeight: 800, textAlign: 'center', margin: '0 0 40px' }}>
-          A 5-minute weekly ritual
+          Ritual 5 menit per minggu
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           {steps.map((s, i) => (
@@ -187,7 +187,7 @@ export default function Landing() {
       <section style={{ background: C.bg, padding: isMobile ? '48px 18px' : '72px 40px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <h2 style={{ fontSize: isMobile ? 24 : 30, fontWeight: 800, textAlign: 'center', margin: '0 0 36px' }}>
-            Frequently asked questions
+            Pertanyaan umum
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {faqs.map((f) => (
@@ -203,12 +203,12 @@ export default function Landing() {
       {/* Final CTA */}
       <section style={{ padding: isMobile ? '56px 18px' : '80px 40px', textAlign: 'center' }}>
         <h2 style={{ fontSize: isMobile ? 26 : 34, fontWeight: 800, margin: '0 0 12px' }}>
-          The quarter keeps moving.<br />Start checking in this week.
+          Kuartal berjalan terus.<br />Mulai check-in minggu ini.
         </h2>
         <p style={{ fontSize: 15, color: C.muted, margin: '0 0 28px' }}>
-          No signup. No setup. Open it and write your first OKR.
+          Tanpa daftar. Tanpa setup. Buka dan langsung tulis OKR pertamamu.
         </p>
-        <CTAButton big>Open OKR Dashboard</CTAButton>
+        <CTAButton big>Buka OKR Dashboard</CTAButton>
       </section>
 
       {/* Footer */}
@@ -219,7 +219,7 @@ export default function Landing() {
           </div>
           <span style={{ fontSize: 13, fontWeight: 700 }}>OKR Dashboard</span>
         </div>
-        <span style={{ fontSize: 12, color: C.muted }}>Free · Your data stays in your browser · {new Date().getFullYear()}</span>
+        <span style={{ fontSize: 12, color: C.muted }}>Gratis · Data tersimpan di browser kamu · {new Date().getFullYear()}</span>
       </footer>
     </div>
   );

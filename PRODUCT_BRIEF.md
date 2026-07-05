@@ -1,6 +1,13 @@
-# Product Brief — OKR Dashboard
+# Product Brief — OwntheWay (OTW)
 
-> Nama kerja. Nama final belum diputuskan — shortlist: **Arah** (arah.co ✅), **Laju** (laju.co ✅), **Tonggak** (tonggak.co ✅).
+> **Nama:** OwntheWay — disingkat **Ownway** atau **OTW**. Hook lokal: "OTW ke goals kamu."
+> Domain available per 5 Jul 2026: **owntheway.co ✅ · ownway.co ✅ · owntheway.app ✅ · otw.co ✅ (kemungkinan premium pricing — verifikasi di registrar)**. Cek .id manual di PANDI.
+>
+> **Kategori:** AI Goal Execution & OKR Management Platform
+> **Tagline:** Align Vision. Execute Better.
+> **Visi:** Membantu individu & organisasi mengubah goals ambisius jadi eksekusi konsisten lewat AI-powered planning, alignment, dan progress tracking berkelanjutan.
+> **Journey:** Vision → Strategy → OKRs → Weekly Execution → Progress Tracking → Reflection → Continuous Improvement
+> **North Star Metric:** Weekly Review Completion Rate — % user aktif yang menyelesaikan weekly review.
 
 **Terakhir diperbarui:** 5 Juli 2026
 
@@ -94,28 +101,52 @@ Payment: Midtrans (fokus Indonesia) atau Lemon Squeezy/Paddle (kalau global).
 
 ---
 
-## 6. Roadmap & Status
+## 6. Prioritas Fitur (Backlog Menuju Visi OwntheWay)
 
-| Phase | Fokus | Status |
-|-------|-------|--------|
-| 0 | Fondasi: mobile, landing, SEO | ✅ Selesai |
-| 1 | Acquisition: SEO template pages, konten, Product Hunt | ⬜ Belum |
-| 2 | Activation: onboarding wizard, aha < 3 menit | 🟡 Wizard selesai; analytics belum |
-| 3 | Retention: backend Supabase, email reminder mingguan, grafik tren confidence | ⬜ Belum |
-| 4 | Referral: shareable dashboard link, invite tim | ⬜ Belum |
-| 5 | Revenue: paywall Pro & Team | ⬜ Belum |
+Semua prioritas diuji terhadap North Star Metric: **Weekly Review Completion Rate**.
 
-**Gate keputusan:** jangan bangun fitur revenue sebelum 3-week retention ≥ 20%. Kalau ritual mingguan tidak terbentuk, perbaiki retention dulu.
+### P0 — Fondasi Ritual (sprint 1–2)
+| # | Fitur | Dampak NSM | Effort | Catatan |
+|---|-------|-----------|--------|---------|
+| 1 | Analytics events (Vercel Analytics + event signup/checkin) | Pengukuran | S | Tanpa ini NSM tidak terukur — kerjakan pertama |
+| 2 | Supabase auth + DB + migrasi data localStorage | Enabler | L | Prasyarat reminder, history, multi-device. Import data lama wajib |
+| 3 | Weekly Check-in v2: confidence slider + 3 pertanyaan (accomplished/challenges/next priorities) + riwayat per minggu | **Langsung** | M | Ini yang diukur NSM. Gabungan diferensiator lama + brief baru |
 
-**Metric per fase:** visitor → signup rate → % check-in pertama (target 40%) → % check-in 3 minggu berturut (target 20%) → % share/invite → free-to-paid conversion (benchmark PLG 2–5%).
+### P1 — Loop Retensi & Aktivasi (sprint 3–4)
+| # | Fitur | Dampak NSM | Effort | Catatan |
+|---|-------|-----------|--------|---------|
+| 4 | Email reminder check-in mingguan | **Langsung** | M | Resend/Supabase; trigger ritual |
+| 5 | Goal Coach v0 — rule-based (behind schedule, KR stale 14 hari, confidence turun berturut, proyeksi tak tercapai) | Tinggi | S–M | Tanpa LLM — deterministik & gratis. Alasan untuk kembali |
+| 6 | AI OKR Generator di onboarding wizard | Aktivasi | M | Goal mentah → draft OKR terukur; kualitas OKR awal = retensi |
+| 7 | Grafik tren confidence per KR/Objective | Tinggi | S–M | Payoff data mingguan — makin lama pakai makin berharga |
+
+### P2 — Pertumbuhan (setelah sinyal NSM, bulan 2–3)
+| # | Fitur | Catatan |
+|---|-------|---------|
+| 8 | Weekly Planner view (prioritas minggu ini lintas KR) | Dari brief; initiatives + week sudah ada, tinggal view |
+| 9 | Shareable read-only dashboard link | Referral loop |
+| 10 | Vision Builder (AI-guided: vision → annual theme → strategic priorities) | Pintu masuk journey penuh |
+| 11 | Branding OTW penuh (landing, app, domain custom) | Setelah domain dibeli |
+
+### P3 — Monetisasi & Tim (setelah retention 3-minggu ≥ 20%)
+| # | Fitur | Catatan |
+|---|-------|---------|
+| 12 | Team workspace + goal alignment hierarchy (Company → Dept → Team → Individual) | Fitur pembeda tier Team |
+| 13 | Billing (Midtrans / Lemon Squeezy) + paywall Free/Pro/Team | Sesuai tier brief |
+| 14 | AI Coach layer LLM (pembungkus bahasa + rekomendasi kontekstual) | Upgrade dari rule-based v0 |
+| 15 | Integrasi (Slack, Google Calendar, Notion) | Future opportunities brief |
+
+**Gate keputusan:** jangan bangun P3 sebelum 3-week retention ≥ 20%. Kalau ritual mingguan tidak terbentuk, perbaiki P0–P1 dulu.
+
+**Metric per fase:** visitor → signup rate → % check-in pertama (target 40%) → **Weekly Review Completion Rate** → % check-in 3 minggu berturut (target 20%) → % share/invite → free-to-paid conversion (benchmark PLG 2–5%).
 
 ---
 
 ## 7. Keputusan Terbuka
 
-1. **Nama & domain** — shortlist Arah/Laju/Tonggak (semua .co available per 4 Jul 2026); VisionTrack ditolak (konflik dengan visiontrack.com, perusahaan telematics global); Searah ditolak (sudah dipakai)
+1. **Domain** — beli owntheway.co + ownway.co (murah, amankan dua-duanya); verifikasi harga otw.co (kemungkinan premium); cek owntheway.id/ownway.id/otw.id manual di registrar
 2. **Bahasa UI app** — landing & wizard sudah Indonesia, dashboard masih English; putuskan: terjemahkan penuh, atau pertahankan istilah OKR English (praktik umum startup Indonesia)
-3. **Analytics** — sengaja ditunda; aktifkan Vercel Analytics sebelum mulai distribusi publik agar data akuisisi tidak hilang
+3. **Model AI** — untuk AI OKR Generator & Coach LLM: mulai dari model murah/gratis (pengalaman opencode zen di mulaibaca) atau langsung Claude Haiku; tentukan budget AI credits per user free tier
 4. **Kanal akuisisi pertama** — SEO template OKR Indonesia vs komunitas (Threads playbook seperti mulaibaca) vs Product Hunt
 
 ---

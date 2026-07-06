@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, RotateCcw, Sparkles, FileText, Check, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, LayoutDashboard, ListChecks, ArrowRight } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
+import { Logo } from './Landing.jsx';
 
 const STORAGE_KEY = 'okr-dashboard-state-v4';
 
@@ -940,9 +941,9 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: C.bg, minHeight: '100vh', color: C.text, fontSize: 14 }}>
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: isMobile ? '12px 14px' : '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 16, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 28, height: 28, background: C.primary, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Target size={16} color={C.white} /></div>
+          <Logo size={28} />
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.1 }}>OKR Dashboard</div>
+            <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.1, letterSpacing: -0.3 }}>Own<span style={{ color: C.primary }}>the</span>Way</div>
             <div style={{ fontSize: 11, color: C.muted }}>{isDirector ? 'Director View · all Objectives at a glance' : 'Working View · Objective → up to 5 KRs → Initiatives'}</div>
           </div>
         </div>

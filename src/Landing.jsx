@@ -117,7 +117,7 @@ export default function Landing() {
 
   const faqs = [
     { q: 'What are OKRs?', a: 'OKRs (Objectives and Key Results) are the goal-setting framework used by Google, Intel, and thousands of companies: one ambitious Objective broken into 3–5 measurable Key Results, reviewed on a regular cadence.' },
-    { q: 'Is it really free?', a: 'Yes. No account, no credit card. Your OKR data lives in your own browser (localStorage) — it\'s never sent to any server.' },
+    { q: 'Is it really free?', a: 'Yes. Free to start, no credit card required. You\'ll create a free account so your OKRs and check-in history are saved securely and available on any device.' },
     { q: 'How is this different from a spreadsheet?', a: 'Confidence tracking. A spreadsheet records progress numbers, but misses the earliest risk signal there is: how confident the people doing the work actually feel. Plus automatic check-in reports instead of manual copy-paste.' },
     { q: 'Can I use it with a team?', a: 'Yes — there are Personal and Team scopes, plus a Director View to see everything at once. Multi-user collaboration is on the roadmap.' },
   ];
@@ -150,9 +150,9 @@ export default function Landing() {
           </p>
           <CTAButton big>Try It Now — Free</CTAButton>
           <div style={{ marginTop: 14, fontSize: 12.5, color: C.muted, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> No account</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> Free to start</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> No credit card</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> Works instantly</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Check size={13} color={C.green} /> 2-minute setup</span>
           </div>
         </div>
         <ConfidenceDemo />
@@ -227,7 +227,7 @@ export default function Landing() {
           The quarter keeps moving.<br />Start checking in this week.
         </h2>
         <p style={{ fontSize: 15, color: C.muted, margin: '0 0 28px' }}>
-          No signup. No setup. Open it and write your first OKR.
+          Free account, takes 2 minutes. Write your first OKR today.
         </p>
         <CTAButton big>Open OwntheWay</CTAButton>
       </section>

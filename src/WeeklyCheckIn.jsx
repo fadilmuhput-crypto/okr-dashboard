@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { api } from './api.js';
+import { trackEvent } from './analytics.js';
 
 const C = {
   primary: '#E72D33',
@@ -104,6 +105,7 @@ export default function WeeklyCheckIn({ objective, krs, scope, weekNumber, check
         weekNumber, scope, objectiveId: objective.id,
         confidenceSnapshot, accomplished, challenges, nextPriorities,
       });
+      trackEvent('weekly_checkin_completed', { week_number: weekNumber, scope });
       setDone(true);
       onSubmitted();
     } catch (e) {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
+import { trackEvent } from './analytics.js';
 
 const C = {
   primary: '#E72D33',
@@ -38,6 +39,7 @@ export default function AuthScreen({ onAuthed }) {
       const { user } = mode === 'login'
         ? await api.login(email.trim(), password)
         : await api.register(email.trim(), password, name.trim());
+      trackEvent(mode === 'login' ? 'login' : 'sign_up', { method: 'email' });
       onAuthed(user);
     } catch (e) {
       setError(e.message);

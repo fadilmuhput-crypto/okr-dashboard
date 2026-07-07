@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, RotateCcw, Sparkles, FileText, Check, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, LayoutDashboard, ListChecks, ArrowRight } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
+import { api } from './api.js';
 
 const STORAGE_KEY = 'okr-dashboard-state-v4';
 
@@ -703,7 +704,13 @@ function EmptyState({ onAdd, onSample, onWizard, accentColor }) {
   );
 }
 
-export default function OKRDashboard() {
+const mergeWithDefault = (parsed) => ({
+  ...DEFAULT_STATE, ...parsed,
+  personal: { ...DEFAULT_STATE.personal, ...(parsed.personal || {}) },
+  team: { ...DEFAULT_STATE.team, ...(parsed.team || {}) }
+});
+
+export default function OKRDashboard({ user, onLogout }) {
   const [state, setState] = useState(DEFAULT_STATE);
   const [loaded, setLoaded] = useState(false);
   const [showAddKR, setShowAddKR] = useState(false);
@@ -715,44 +722,55 @@ export default function OKRDashboard() {
   const [copied, setCopied] = useState(false);
   const [storageWarning, setStorageWarning] = useState('');
   const [showWizard, setShowWizard] = useState(false);
+  const [migrated, setMigrated] = useState(false);
   const saveTimer = useRef(null);
 
+  // Load order: server state (source of truth once signed in) → else a
+  // one-time migration from this browser's localStorage (pre-auth data) →
+  // else fresh wizard for first-time users.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setState({
-          ...DEFAULT_STATE, ...parsed,
-          personal: { ...DEFAULT_STATE.personal, ...(parsed.personal || {}) },
-          team: { ...DEFAULT_STATE.team, ...(parsed.team || {}) }
-        });
-      }
-    } catch (e) {
-      console.warn('OKR dashboard: could not load saved state', e);
-    } finally {
-      setLoaded(true);
-      // Wizard onboarding: tampil otomatis untuk first-time user (belum ada
-      // data tersimpan dan belum pernah menyelesaikan/melewati wizard)
+    (async () => {
+      let localParsed = null;
       try {
-        if (!localStorage.getItem(STORAGE_KEY) && !localStorage.getItem('okr-wizard-done')) {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) localParsed = JSON.parse(raw);
+      } catch (e) {
+        console.warn('OKR dashboard: could not read local backup', e);
+      }
+
+      try {
+        const { state: remoteState } = await api.getState();
+        if (remoteState) {
+          setState(mergeWithDefault(remoteState));
+        } else if (localParsed) {
+          const merged = mergeWithDefault(localParsed);
+          setState(merged);
+          await api.putState(merged);
+          setMigrated(true);
+        } else if (!localStorage.getItem('okr-wizard-done')) {
           setShowWizard(true);
         }
-      } catch { /* private mode */ }
-    }
+      } catch (e) {
+        setStorageWarning('Could not reach the server — showing your local copy. Changes may not sync.');
+        if (localParsed) setState(mergeWithDefault(localParsed));
+      } finally {
+        setLoaded(true);
+      }
+    })();
   }, []);
 
   useEffect(() => {
     if (!loaded) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+    saveTimer.current = setTimeout(async () => {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* best-effort local backup */ }
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        await api.putState(state);
         setStorageWarning('');
       } catch (e) {
-        setStorageWarning('Could not save — changes may not persist if you reload.');
+        setStorageWarning('Could not save to server — changes are kept locally until reconnected.');
       }
-    }, 200);
+    }, 400);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [state, loaded]);
 
@@ -969,9 +987,18 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
           {!isDirector && (
             <button onClick={() => setShowReset(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Reset all data"><RotateCcw size={13} /></button>
           )}
+          {user && (
+            <button onClick={onLogout} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title={`Sign out (${user.email})`}>Sign out</button>
+          )}
         </div>
       </div>
 
+      {migrated && (
+        <div style={{ padding: '8px 24px', background: C.greenSoft, color: '#1E7A47', fontSize: 12, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>✓ Imported the OKRs saved in this browser into your account.</span>
+          <button onClick={() => setMigrated(false)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
+        </div>
+      )}
       {storageWarning && <div style={{ padding: '8px 24px', background: C.yellowSoft, color: '#8B6914', fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
 
       {isDirector ? (

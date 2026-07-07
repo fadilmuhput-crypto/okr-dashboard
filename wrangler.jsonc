@@ -1,11 +1,20 @@
 {
   // Cloudflare Workers config — OwntheWay (OTW)
-  // Deploy: static SPA via Workers static assets.
-  // Nanti di P0: tambah "main" (worker API), binding D1, dan cron triggers di sini.
+  // Worker handles /api/* (auth, state, checkins); everything else falls
+  // through to the static SPA build in ./dist.
   "name": "owntheway",
   "compatibility_date": "2026-07-01",
+  "main": "worker/index.js",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "owntheway-db",
+      "database_id": "ac823eb0-814b-4a8f-b4eb-e9181f604889"
+    }
+  ]
 }

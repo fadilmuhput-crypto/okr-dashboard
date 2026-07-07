@@ -5,7 +5,7 @@ import { Logo } from './Landing.jsx';
 import { api } from './api.js';
 import WeeklyCheckIn from './WeeklyCheckIn.jsx';
 import { computeCoachInsights } from './coach.js';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, Pencil } from 'lucide-react';
 
 const STORAGE_KEY = 'okr-dashboard-state-v4';
 
@@ -40,18 +40,45 @@ const STATUS_META = {
 };
 const STATUS_ORDER = ['todo', 'in_progress', 'hold', 'cancelled', 'done'];
 
-const newObjective = (idPrefix, objectives) => ({
-  id: idPrefix + (Math.max(0, ...objectives.map(o => parseInt(String(o.id).replace(idPrefix, ''), 10)).filter(n => !isNaN(n))) + 1),
-  objective: '', whyNow: '', krs: []
-});
+const PROJECT_COLORS = [C.primary, C.secondary, '#7C3AED', '#059669', '#D97706', '#DB2777'];
+const FREE_PROJECT_LIMIT = 2;
+const newProjectId = () => `proj_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 const DEFAULT_STATE = {
-  activeScope: 'personal',
+  activeProjectId: 'personal',
   weekNumber: 1,
   viewMode: 'working',
-  personal: { objectives: [{ id: 'po1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'po1' },
-  team: { objectives: [{ id: 'to1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'to1' }
+  projects: [
+    { id: 'personal', name: 'Personal', objectives: [{ id: 'po1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'po1' },
+    { id: 'team', name: 'Team', objectives: [{ id: 'to1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'to1' }
+  ]
 };
+
+// Converts pre-Projects state ({ activeScope, personal: {...}, team: {...} })
+// into the projects[] shape. Anything already on the new shape passes through.
+function migrateState(raw) {
+  if (!raw) return DEFAULT_STATE;
+  if (Array.isArray(raw.projects)) {
+    return {
+      weekNumber: raw.weekNumber || 1,
+      viewMode: raw.viewMode || 'working',
+      activeProjectId: raw.activeProjectId || raw.projects[0]?.id,
+      projects: raw.projects.length ? raw.projects : DEFAULT_STATE.projects,
+    };
+  }
+  if (raw.personal || raw.team) {
+    const projects = [];
+    if (raw.personal) projects.push({ id: 'personal', name: 'Personal', objectives: raw.personal.objectives || [], activeObjectiveId: raw.personal.activeObjectiveId });
+    if (raw.team) projects.push({ id: 'team', name: 'Team', objectives: raw.team.objectives || [], activeObjectiveId: raw.team.activeObjectiveId });
+    return {
+      weekNumber: raw.weekNumber || 1,
+      viewMode: raw.viewMode || 'working',
+      activeProjectId: raw.activeScope === 'team' ? 'team' : 'personal',
+      projects: projects.length ? projects : DEFAULT_STATE.projects,
+    };
+  }
+  return DEFAULT_STATE;
+}
 
 const SAMPLE_PERSONAL_OBJECTIVES = [
   {
@@ -464,6 +491,33 @@ function KRCard({ kr, onUpdate, onDelete, onAddIni, onUpdateIni, onDeleteIni, ac
   );
 }
 
+function ProjectNameForm({ initialName = '', confirmLabel, onCancel, onConfirm }) {
+  const [name, setName] = useState(initialName);
+  const [err, setErr] = useState('');
+
+  const submit = () => {
+    if (!name.trim()) { setErr('Give the project a name.'); return; }
+    onConfirm(name.trim());
+  };
+
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Project name</label>
+      <input
+        autoFocus value={name} onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+        placeholder="e.g. Side Business, Career, Q3 Launch"
+        style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: 'inherit', outline: 'none', background: C.white, color: C.text, boxSizing: 'border-box' }}
+      />
+      {err && <div style={{ color: C.red, fontSize: 12, marginTop: 8 }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+        <button onClick={onCancel} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Cancel</button>
+        <button onClick={submit} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', background: C.primary, color: C.white, borderRadius: 5, cursor: 'pointer' }}>{confirmLabel}</button>
+      </div>
+    </div>
+  );
+}
+
 function AddKRForm({ onCancel, onAdd }) {
   const [label, setLabel] = useState('');
   const [type, setType] = useState('percent');
@@ -577,11 +631,46 @@ function ObjectiveTabs({ objectives, activeId, onSelect, onAdd, onDelete, accent
   );
 }
 
+function ProjectTabs({ projects, activeId, onSelect, onAdd, onRename, onDelete }) {
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      {projects.map((p, idx) => {
+        const active = p.id === activeId;
+        const color = PROJECT_COLORS[idx % PROJECT_COLORS.length];
+        return (
+          <div key={p.id} style={{ position: 'relative', display: 'inline-flex' }}>
+            <button onClick={() => onSelect(p.id)} title={p.name} style={{
+              maxWidth: 180, padding: projects.length > 1 ? '7px 44px 7px 18px' : '7px 18px', fontSize: 13, fontWeight: 600,
+              border: 'none', borderRadius: 6, cursor: 'pointer',
+              background: active ? color : 'transparent', color: active ? C.white : C.muted,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'all 0.15s'
+            }}>
+              {p.name}
+            </button>
+            {projects.length > 0 && (
+              <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
+                <button onClick={(e) => { e.stopPropagation(); onRename(p.id); }} title="Rename project" style={{ background: 'none', border: 'none', cursor: 'pointer', color: active ? C.white : C.muted, display: 'flex', padding: 0, opacity: 0.8 }}>
+                  <Pencil size={10} />
+                </button>
+                {projects.length > 1 && (
+                  <button onClick={(e) => { e.stopPropagation(); onDelete(p.id); }} title="Delete project" style={{ background: 'none', border: 'none', cursor: 'pointer', color: active ? C.white : C.muted, display: 'flex', padding: 0, opacity: 0.8 }}>
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <button onClick={onAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, border: `1px dashed ${C.border}`, borderRadius: 6, cursor: 'pointer', background: 'transparent', color: C.muted }}>
+        <Plus size={12} /> New Project
+      </button>
+    </div>
+  );
+}
+
 function DirectorView({ state, onJump }) {
-  const allObjs = [
-    ...state.personal.objectives.map(o => ({ ...o, scope: 'personal' })),
-    ...state.team.objectives.map(o => ({ ...o, scope: 'team' }))
-  ];
+  const allObjs = state.projects.flatMap(p => p.objectives.map(o => ({ ...o, projectId: p.id })));
   const allKRs = allObjs.flatMap(o => o.krs);
   const allInis = allKRs.flatMap(k => k.initiatives);
 
@@ -626,20 +715,21 @@ function DirectorView({ state, onJump }) {
         </div>
       )}
 
-      {[{ key: 'personal', label: 'Personal', color: C.primary }, { key: 'team', label: 'Team', color: C.secondary }].map(scopeMeta => {
-        const objs = allObjs.filter(o => o.scope === scopeMeta.key);
+      {state.projects.map((proj, idx) => {
+        const color = PROJECT_COLORS[idx % PROJECT_COLORS.length];
+        const objs = allObjs.filter(o => o.projectId === proj.id);
         const hasContent = objs.some(o => o.objective || o.krs.length);
         if (!hasContent) return null;
         return (
-          <div key={scopeMeta.key}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: scopeMeta.color, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>{scopeMeta.label}</div>
+          <div key={proj.id}>
+            <div style={{ fontSize: 12, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>{proj.name}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {objs.filter(o => o.objective || o.krs.length).map(o => {
                 const krs = o.krs;
                 const conf = krs.length ? krs.reduce((s, k) => s + k.confidence, 0) / krs.length : 0;
                 const objDelayed = krs.flatMap(k => k.initiatives).filter(i => timeliness(i) === 'delayed').length;
                 return (
-                  <div key={o.id} onClick={() => onJump(scopeMeta.key, o.id)} style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 16px', cursor: 'pointer', borderLeft: `4px solid ${krs.length ? confColor(conf) : C.border}` }}
+                  <div key={o.id} onClick={() => onJump(proj.id, o.id)} style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 16px', cursor: 'pointer', borderLeft: `4px solid ${krs.length ? confColor(conf) : C.border}` }}
                     onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: krs.length ? 10 : 0 }}>
@@ -735,12 +825,6 @@ function EmptyState({ onAdd, onSample, onWizard, accentColor }) {
   );
 }
 
-const mergeWithDefault = (parsed) => ({
-  ...DEFAULT_STATE, ...parsed,
-  personal: { ...DEFAULT_STATE.personal, ...(parsed.personal || {}) },
-  team: { ...DEFAULT_STATE.team, ...(parsed.team || {}) }
-});
-
 export default function OKRDashboard({ user, onLogout }) {
   const [state, setState] = useState(DEFAULT_STATE);
   const [loaded, setLoaded] = useState(false);
@@ -756,6 +840,10 @@ export default function OKRDashboard({ user, onLogout }) {
   const [migrated, setMigrated] = useState(false);
   const [checkins, setCheckins] = useState([]);
   const [showWeeklyCheckIn, setShowWeeklyCheckIn] = useState(false);
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [renameProjectTarget, setRenameProjectTarget] = useState(null);
+  const [deleteProjectTarget, setDeleteProjectTarget] = useState(null);
   const saveTimer = useRef(null);
 
   // Load order: server state (source of truth once signed in) → else a
@@ -774,9 +862,9 @@ export default function OKRDashboard({ user, onLogout }) {
       try {
         const { state: remoteState } = await api.getState();
         if (remoteState) {
-          setState(mergeWithDefault(remoteState));
+          setState(migrateState(remoteState));
         } else if (localParsed) {
-          const merged = mergeWithDefault(localParsed);
+          const merged = migrateState(localParsed);
           setState(merged);
           await api.putState(merged);
           setMigrated(true);
@@ -785,7 +873,7 @@ export default function OKRDashboard({ user, onLogout }) {
         }
       } catch (e) {
         setStorageWarning('Could not reach the server — showing your local copy. Changes may not sync.');
-        if (localParsed) setState(mergeWithDefault(localParsed));
+        if (localParsed) setState(migrateState(localParsed));
       } finally {
         setLoaded(true);
       }
@@ -811,92 +899,90 @@ export default function OKRDashboard({ user, onLogout }) {
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [state, loaded]);
 
-  const scopeData = state[state.activeScope];
-  const objectives = scopeData.objectives;
-  const objective = objectives.find(o => o.id === scopeData.activeObjectiveId) || objectives[0];
+  const projectIndex = Math.max(0, state.projects.findIndex(p => p.id === state.activeProjectId));
+  const activeProject = state.projects[projectIndex] || state.projects[0];
+  const objectives = activeProject.objectives;
+  const objective = objectives.find(o => o.id === activeProject.activeObjectiveId) || objectives[0];
   const krs = objective ? objective.krs : [];
   const allInitiatives = krs.flatMap(k => k.initiatives);
   const overallConf = krs.length ? krs.reduce((s, k) => s + k.confidence, 0) / krs.length : 0;
   const atRiskCount = krs.filter(k => k.confidence < 0.5).length;
   const delayedCount = allInitiatives.filter(i => timeliness(i) === 'delayed').length;
-  const accentColor = state.activeScope === 'personal' ? C.primary : C.secondary;
+  const accentColor = PROJECT_COLORS[projectIndex % PROJECT_COLORS.length];
 
-  const updateObjField = (field, value) => setState(s => ({
-    ...s, [s.activeScope]: { ...s[s.activeScope], objectives: s[s.activeScope].objectives.map(o => o.id === objective.id ? { ...o, [field]: value } : o) }
+  const updateProject = (projectId, updater) => setState(s => ({
+    ...s, projects: s.projects.map(p => p.id === projectId ? updater(p) : p)
   }));
 
-  const selectObjective = (id) => setState(s => ({ ...s, [s.activeScope]: { ...s[s.activeScope], activeObjectiveId: id } }));
+  const updateObjField = (field, value) => updateProject(activeProject.id, (p) => ({
+    ...p, objectives: p.objectives.map(o => o.id === objective.id ? { ...o, [field]: value } : o)
+  }));
 
-  const jumpTo = (scope, objId) => setState(s => ({ ...s, activeScope: scope, viewMode: 'working', [scope]: { ...s[scope], activeObjectiveId: objId } }));
+  const selectObjective = (id) => updateProject(activeProject.id, (p) => ({ ...p, activeObjectiveId: id }));
+
+  const jumpTo = (projectId, objId) => setState(s => ({
+    ...s, activeProjectId: projectId, viewMode: 'working',
+    projects: s.projects.map(p => p.id === projectId ? { ...p, activeObjectiveId: objId } : p)
+  }));
 
   const addObjective = () => {
-    setState(s => {
-      const sc = s[s.activeScope];
-      const prefix = s.activeScope === 'personal' ? 'po' : 'to';
-      const newObj = newObjective(prefix, sc.objectives);
-      return { ...s, [s.activeScope]: { ...sc, objectives: [...sc.objectives, newObj], activeObjectiveId: newObj.id } };
+    updateProject(activeProject.id, (p) => {
+      const newObj = { id: newId(p.id + 'o', p.objectives), objective: '', whyNow: '', krs: [] };
+      return { ...p, objectives: [...p.objectives, newObj], activeObjectiveId: newObj.id };
     });
   };
 
   const confirmDeleteObjective = () => {
     if (!deleteObjTarget) return;
-    setState(s => {
-      const sc = s[s.activeScope];
-      const remaining = sc.objectives.filter(o => o.id !== deleteObjTarget);
-      const nextActive = sc.activeObjectiveId === deleteObjTarget ? (remaining[0] ? remaining[0].id : null) : sc.activeObjectiveId;
-      return { ...s, [s.activeScope]: { ...sc, objectives: remaining, activeObjectiveId: nextActive } };
+    updateProject(activeProject.id, (p) => {
+      const remaining = p.objectives.filter(o => o.id !== deleteObjTarget);
+      const nextActive = p.activeObjectiveId === deleteObjTarget ? (remaining[0] ? remaining[0].id : null) : p.activeObjectiveId;
+      return { ...p, objectives: remaining, activeObjectiveId: nextActive };
     });
     setDeleteObjTarget(null);
   };
 
-  const updateKR = (id, updates) => setState(s => ({
-    ...s, [s.activeScope]: { ...s[s.activeScope], objectives: s[s.activeScope].objectives.map(o => o.id === objective.id ? { ...o, krs: o.krs.map(k => k.id === id ? { ...k, ...updates } : k) } : o) }
+  const updateKR = (id, updates) => updateProject(activeProject.id, (p) => ({
+    ...p, objectives: p.objectives.map(o => o.id === objective.id ? { ...o, krs: o.krs.map(k => k.id === id ? { ...k, ...updates } : k) } : o)
   }));
 
   const addKR = (kr) => {
-    setState(s => {
-      const sc = s[s.activeScope];
-      const obj = sc.objectives.find(o => o.id === scopeData.activeObjectiveId);
-      if (!obj || obj.krs.length >= 5) return s;
-      return { ...s, [s.activeScope]: { ...sc, objectives: sc.objectives.map(o => o.id === obj.id ? { ...o, krs: [...o.krs, { id: newId(obj.id + 'k', o.krs), ...kr }] } : o) } };
+    updateProject(activeProject.id, (p) => {
+      const obj = p.objectives.find(o => o.id === activeProject.activeObjectiveId);
+      if (!obj || obj.krs.length >= 5) return p;
+      return { ...p, objectives: p.objectives.map(o => o.id === obj.id ? { ...o, krs: [...o.krs, { id: newId(obj.id + 'k', o.krs), ...kr }] } : o) };
     });
     setShowAddKR(false);
   };
 
   const confirmDeleteKR = () => {
     if (!deleteKRTarget) return;
-    setState(s => ({
-      ...s, [s.activeScope]: { ...s[s.activeScope], objectives: s[s.activeScope].objectives.map(o => o.id === objective.id ? { ...o, krs: o.krs.filter(k => k.id !== deleteKRTarget) } : o) }
+    updateProject(activeProject.id, (p) => ({
+      ...p, objectives: p.objectives.map(o => o.id === objective.id ? { ...o, krs: o.krs.filter(k => k.id !== deleteKRTarget) } : o)
     }));
     setDeleteKRTarget(null);
   };
 
   const mutateKRInitiatives = (krId, fn) => {
-    setState(s => ({
-      ...s, [s.activeScope]: {
-        ...s[s.activeScope],
-        objectives: s[s.activeScope].objectives.map(o => o.id === objective.id
-          ? { ...o, krs: o.krs.map(k => k.id === krId ? { ...k, initiatives: fn(k.initiatives, k) } : k) }
-          : o)
-      }
+    updateProject(activeProject.id, (p) => ({
+      ...p,
+      objectives: p.objectives.map(o => o.id === objective.id
+        ? { ...o, krs: o.krs.map(k => k.id === krId ? { ...k, initiatives: fn(k.initiatives, k) } : k) }
+        : o)
     }));
   };
   const addIniToKR = (krId, ini) => mutateKRInitiatives(krId, (inis) => [...inis, { id: newId(krId + 'i', inis), ...ini }]);
   const updateIniInKR = (krId, iniId, updates) => mutateKRInitiatives(krId, (inis) => inis.map(i => i.id === iniId ? { ...i, ...updates } : i));
   const deleteIniFromKR = (krId, iniId) => mutateKRInitiatives(krId, (inis) => inis.filter(i => i.id !== iniId));
 
-  const loadSample = () => setState(s => ({
-    ...s,
-    personal: { objectives: SAMPLE_PERSONAL_OBJECTIVES, activeObjectiveId: SAMPLE_PERSONAL_OBJECTIVES[0].id },
-    team: { objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
-  }));
+  const loadSample = () => updateProject(activeProject.id, (p) =>
+    projectIndex === 0
+      ? { ...p, objectives: SAMPLE_PERSONAL_OBJECTIVES, activeObjectiveId: SAMPLE_PERSONAL_OBJECTIVES[0].id }
+      : { ...p, objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
+  );
 
   const completeWizard = (obj) => {
-    setState(s => ({
-      ...s,
-      activeScope: 'personal',
-      personal: { objectives: [obj], activeObjectiveId: obj.id }
-    }));
+    updateProject(activeProject.id, (p) => ({ ...p, objectives: [obj], activeObjectiveId: obj.id }));
     try { localStorage.setItem('okr-wizard-done', '1'); } catch (e) {}
     setShowWizard(false);
   };
@@ -907,9 +993,40 @@ export default function OKRDashboard({ user, onLogout }) {
   };
 
   const handleReset = () => {
-    setState({ ...DEFAULT_STATE, personal: { objectives: [{ id: 'po1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'po1' }, team: { objectives: [{ id: 'to1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'to1' } });
+    setState(DEFAULT_STATE);
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
     setShowReset(false);
+  };
+
+  // Project management — create/rename/delete, with the Free-tier project
+  // count gate. Billing itself (P3) isn't built; this is just the limit +
+  // upsell messaging so the paywall UX can be tested before payments exist.
+  const addProject = (name) => {
+    if (state.projects.length >= FREE_PROJECT_LIMIT) { setShowUpgradeModal(true); return; }
+    const id = newProjectId();
+    const obj = { id: id + 'o1', objective: '', whyNow: '', krs: [] };
+    setState(s => ({
+      ...s,
+      activeProjectId: id,
+      projects: [...s.projects, { id, name: name.trim() || 'New Project', objectives: [obj], activeObjectiveId: obj.id }]
+    }));
+    setShowAddProject(false);
+  };
+
+  const renameProject = (id, name) => {
+    setState(s => ({ ...s, projects: s.projects.map(p => p.id === id ? { ...p, name: name.trim() || p.name } : p) }));
+    setRenameProjectTarget(null);
+  };
+
+  const confirmDeleteProject = () => {
+    if (!deleteProjectTarget) return;
+    setState(s => {
+      const remaining = s.projects.filter(p => p.id !== deleteProjectTarget);
+      if (remaining.length === 0) return s;
+      const nextActive = s.activeProjectId === deleteProjectTarget ? remaining[0].id : s.activeProjectId;
+      return { ...s, activeProjectId: nextActive, projects: remaining };
+    });
+    setDeleteProjectTarget(null);
   };
 
   const fmtKRTarget = (k) => k.type === 'deadline' ? `Due ${MONTHS[k.deadlineMonth - 1]} ${k.deadlineYear}` : `${k.current} → ${k.target} ${k.unit}`;
@@ -943,23 +1060,24 @@ export default function OKRDashboard({ user, onLogout }) {
     const onTrackOf = (sc, tag) => allKRsOf(sc).filter(k => k.confidence >= 0.7).map(k => `- [${tag}] ${k.label} — confidence ${k.confidence.toFixed(2)}`);
     const delayedOf = (sc, tag) => sc.objectives.flatMap(o => o.krs.flatMap(k => k.initiatives.filter(i => timeliness(i) === 'delayed').map(i => `- [${tag}] ${i.title} (due ${fmtDate(i.endDate)}) — Driver: ${i.driver}`)));
 
-    const allAtRisk = [...atRiskOf(state.personal, 'P'), ...atRiskOf(state.team, 'T')];
-    const allOnTrack = [...onTrackOf(state.personal, 'P'), ...onTrackOf(state.team, 'T')];
-    const allDelayed = [...delayedOf(state.personal, 'P'), ...delayedOf(state.team, 'T')];
+    const tagOf = (p) => p.name.trim() || 'Untitled';
     const confOf = (sc) => { const k = allKRsOf(sc); return k.length ? k.reduce((a, x) => a + x.confidence, 0) / k.length : 0; };
-    const pConf = confOf(state.personal), tConf = confOf(state.team);
+
+    const allAtRisk = state.projects.flatMap(p => atRiskOf(p, tagOf(p)));
+    const allOnTrack = state.projects.flatMap(p => onTrackOf(p, tagOf(p)));
+    const allDelayed = state.projects.flatMap(p => delayedOf(p, tagOf(p)));
+    const overallLines = state.projects.map(p => {
+      const c = confOf(p);
+      return `- **${p.name}**: ${confEmoji(c)} ${c.toFixed(2)} confidence (${confLabel(c)})`;
+    }).join('\n');
+    const progressSections = state.projects.map(p => `## ${p.name} OKR Progress\n${fmtScopeBlock(p, p.name)}`).join('\n\n');
 
     return `# Weekly Check-in — Week ${state.weekNumber}
 
 ## Overall Status
-- **Personal**: ${confEmoji(pConf)} ${pConf.toFixed(2)} confidence (${confLabel(pConf)})
-- **Team**: ${confEmoji(tConf)} ${tConf.toFixed(2)} confidence (${confLabel(tConf)})
+${overallLines}
 
-## Personal OKR Progress
-${fmtScopeBlock(state.personal, 'Personal')}
-
-## Team OKR Progress
-${fmtScopeBlock(state.team, 'Team')}
+${progressSections}
 
 ## At-Risk KRs (${allAtRisk.length})
 ${allAtRisk.length ? allAtRisk.join('\n') : '_None — all KRs at watch or better._'}
@@ -1055,18 +1173,18 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         <>
           <div style={{ padding: `20px ${padX}px 0 ${padX}px`, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'inline-flex', background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, alignSelf: 'flex-start' }}>
-              {[{ id: 'personal', label: 'Personal', color: C.primary }, { id: 'team', label: 'Team', color: C.secondary }].map(s => {
-                const active = state.activeScope === s.id;
-                return (
-                  <button key={s.id} onClick={() => setState(st => ({ ...st, activeScope: s.id }))} style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: active ? s.color : 'transparent', color: active ? C.white : C.muted, transition: 'all 0.15s' }}>
-                    {s.label}
-                  </button>
-                );
-              })}
+              <ProjectTabs
+                projects={state.projects}
+                activeId={state.activeProjectId}
+                onSelect={(id) => setState(s => ({ ...s, activeProjectId: id }))}
+                onAdd={() => state.projects.length >= FREE_PROJECT_LIMIT ? setShowUpgradeModal(true) : setShowAddProject(true)}
+                onRename={(id) => setRenameProjectTarget(id)}
+                onDelete={(id) => setDeleteProjectTarget(id)}
+              />
             </div>
             <ObjectiveTabs
               objectives={objectives}
-              activeId={scopeData.activeObjectiveId}
+              activeId={activeProject.activeObjectiveId}
               onSelect={selectObjective}
               onAdd={addObjective}
               onDelete={(id) => setDeleteObjTarget(id)}
@@ -1076,7 +1194,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
           <div style={{ padding: `16px ${padX}px 40px ${padX}px` }}>
             {loaded && empty ? (
-              <EmptyState onAdd={() => setShowAddKR(true)} onSample={loadSample} onWizard={state.activeScope === 'personal' ? () => setShowWizard(true) : undefined} accentColor={accentColor} />
+              <EmptyState onAdd={() => setShowAddKR(true)} onSample={loadSample} onWizard={projectIndex === 0 ? () => setShowWizard(true) : undefined} accentColor={accentColor} />
             ) : objective ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
@@ -1084,7 +1202,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 12 : 16, justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row' }}>
                       <div style={{ flex: 1, minWidth: 0, width: isMobile ? '100%' : undefined }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>
-                          {state.activeScope === 'personal' ? 'Personal' : 'Team'} Objective <span style={{ fontWeight: 400, textTransform: 'none', color: C.muted, letterSpacing: 0 }}>— aspirational, not a task</span>
+                          {activeProject.name} Objective <span style={{ fontWeight: 400, textTransform: 'none', color: C.muted, letterSpacing: 0 }}>— aspirational, not a task</span>
                         </div>
                         <InlineEdit value={objective.objective} onChange={(v) => updateObjField('objective', v)} placeholder="What's the bold, inspiring future state we're reaching for — something we'd be proud of even if we fall short?" fontSize={19} fontWeight={600} />
                         <div style={{ marginTop: 6 }}>
@@ -1165,8 +1283,39 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         </div>
       </Modal>
 
+      <Modal open={showAddProject} onClose={() => setShowAddProject(false)} title="New Project" maxWidth={420}>
+        <ProjectNameForm confirmLabel="Create Project" onCancel={() => setShowAddProject(false)} onConfirm={addProject} />
+      </Modal>
+
+      <Modal open={!!renameProjectTarget} onClose={() => setRenameProjectTarget(null)} title="Rename Project" maxWidth={420}>
+        <ProjectNameForm
+          initialName={state.projects.find(p => p.id === renameProjectTarget)?.name || ''}
+          confirmLabel="Save"
+          onCancel={() => setRenameProjectTarget(null)}
+          onConfirm={(name) => renameProject(renameProjectTarget, name)}
+        />
+      </Modal>
+
+      <Modal open={!!deleteProjectTarget} onClose={() => setDeleteProjectTarget(null)} title="Delete this Project?" maxWidth={420}>
+        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>This removes <strong>every Objective, Key Result, and Key Initiative</strong> in this project. This cannot be undone.</div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={() => setDeleteProjectTarget(null)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={confirmDeleteProject} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', background: C.red, color: C.white, borderRadius: 5, cursor: 'pointer' }}>Delete Project</button>
+        </div>
+      </Modal>
+
+      <Modal open={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} title="Free plan limit reached" maxWidth={420}>
+        <div style={{ fontSize: 13, color: C.text, marginBottom: 16, lineHeight: 1.6 }}>
+          The Free plan includes up to <strong>{FREE_PROJECT_LIMIT} projects</strong>. Upgrade to Pro for unlimited projects, plus advanced analytics and AI coaching.
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={() => setShowUpgradeModal(false)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Maybe later</button>
+          <button disabled style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', background: C.border, color: C.muted, borderRadius: 5, cursor: 'not-allowed' }} title="Billing isn't live yet">Upgrade to Pro (coming soon)</button>
+        </div>
+      </Modal>
+
       <Modal open={showReset} onClose={() => setShowReset(false)} title="Reset all data?" maxWidth={420}>
-        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>This clears <strong>every Objective in both Personal and Team</strong> and resets week to 1. This cannot be undone.</div>
+        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>This clears <strong>every project, Objective, and Key Result</strong> and resets week to 1. This cannot be undone.</div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={() => setShowReset(false)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Cancel</button>
           <button onClick={handleReset} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', background: C.red, color: C.white, borderRadius: 5, cursor: 'pointer' }}>Reset everything</button>
@@ -1193,7 +1342,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         <WeeklyCheckIn
           objective={objective}
           krs={krs}
-          scope={state.activeScope}
+          scope={activeProject.id}
           weekNumber={state.weekNumber}
           checkins={checkins}
           onClose={() => setShowWeeklyCheckIn(false)}

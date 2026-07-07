@@ -131,13 +131,13 @@ Semua prioritas diuji terhadap North Star Metric: **Weekly Review Completion Rat
 ### P3 — Monetisasi & Tim (setelah retention 3-minggu ≥ 20%)
 | # | Fitur | Catatan |
 |---|-------|---------|
-| 12 | **Projects** — generalisasi scope `personal`/`team` hardcode jadi container bernama-bebas (mis. "Karier", "Bisnis Sampingan"); free tier dibatasi 2 project, Pro/Team unlimited | Paywall utama — lihat catatan di bawah |
+| 12 | ✅ **Projects** — generalisasi scope `personal`/`team` hardcode jadi container bernama-bebas; free tier dibatasi 2 project | **Selesai 7 Jul 2026** — lihat catatan di bawah |
 | 13 | Team workspace + goal alignment hierarchy (Company → Dept → Team → Individual) | Fitur pembeda tier Team |
-| 14 | Billing (Midtrans / Lemon Squeezy) + paywall Free/Pro/Team | Sesuai tier brief |
+| 14 | Billing (Midtrans / Lemon Squeezy) + paywall Free/Pro/Team | Sesuai tier brief — **prasyarat untuk enforcement limit Projects yang sesungguhnya** |
 | 15 | AI Coach layer LLM (pembungkus bahasa + rekomendasi kontekstual) | Upgrade dari rule-based v0 |
 | 16 | Integrasi (Slack, Google Calendar, Notion) | Future opportunities brief |
 
-**Keputusan model monetisasi — Projects (7 Jul 2026):** limit paywall diletakkan di *jumlah project* (kapasitas organisasi), bukan di penggunaan inti (check-in mingguan, jumlah KR, dsb). Ini sengaja — menggerakkan revenue tanpa mengorbankan NSM yang sedang divalidasi, dan justru mengunci pengguna intent tinggi (entrepreneur/SMB yang mengelola beberapa venture) yaitu persis segmen target tier berbayar. Implikasi arsitektur: field `activeScope: 'personal'|'team'` di state perlu diganti/dibungkus jadi array `projects[]` bernama bebas sebelum fitur ini dibangun — perubahan skema, bukan sekadar UI.
+**Projects — selesai dibangun (7 Jul 2026, dieksekusi lebih awal dari gate P3 atas permintaan user):** state `activeScope: 'personal'|'team'` diganti jadi `activeProjectId` + array `projects[]` (id, name, objectives, activeObjectiveId bebas nama). UI: buat/rename/hapus project (tidak bisa hapus project terakhir), warna accent otomatis dari palet berdasarkan index. Limit 2 project untuk free tier — begitu coba bikin project ke-3, muncul modal upgrade (paywall messaging saja, tombol "Upgrade to Pro" disabled karena billing belum ada). Data lama (personal/team) otomatis termigrasi tanpa kehilangan data saat load pertama. **Catatan penting:** limit 2 project ini baru client-side (dicek di JS saat submit form), belum ada field `plan`/`tier` di tabel `users` — jadi bukan enforcement yang keras. Begitu item #14 (billing) dibangun, perlu ditambahkan pengecekan server-side juga.
 
 **Gate keputusan:** jangan bangun P3 sebelum 3-week retention ≥ 20%. Kalau ritual mingguan tidak terbentuk, perbaiki P0–P1 dulu.
 

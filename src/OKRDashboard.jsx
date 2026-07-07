@@ -3,6 +3,7 @@ import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, RotateCcw, Spar
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
+import WeeklyCheckIn from './WeeklyCheckIn.jsx';
 
 const STORAGE_KEY = 'okr-dashboard-state-v4';
 
@@ -723,6 +724,8 @@ export default function OKRDashboard({ user, onLogout }) {
   const [storageWarning, setStorageWarning] = useState('');
   const [showWizard, setShowWizard] = useState(false);
   const [migrated, setMigrated] = useState(false);
+  const [checkins, setCheckins] = useState([]);
+  const [showWeeklyCheckIn, setShowWeeklyCheckIn] = useState(false);
   const saveTimer = useRef(null);
 
   // Load order: server state (source of truth once signed in) → else a
@@ -757,7 +760,11 @@ export default function OKRDashboard({ user, onLogout }) {
         setLoaded(true);
       }
     })();
+
+    api.getCheckins().then((r) => setCheckins(r.checkins)).catch(() => {});
   }, []);
+
+  const refreshCheckins = () => { api.getCheckins().then((r) => setCheckins(r.checkins)).catch(() => {}); };
 
   useEffect(() => {
     if (!loaded) return;
@@ -983,7 +990,15 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
               </select>
             </div>
           )}
-          <button onClick={openCheckIn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.primary, color: C.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><FileText size={13} /> Generate check-in</button>
+          {!isDirector && objective && (
+            <button onClick={() => setShowWeeklyCheckIn(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.primary, color: C.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <Check size={13} /> Weekly Check-in
+              {checkins.some((c) => c.objectiveId === objective.id && c.weekNumber === state.weekNumber) && (
+                <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 4, padding: '1px 5px', fontSize: 10 }}>✓</span>
+              )}
+            </button>
+          )}
+          <button onClick={openCheckIn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><FileText size={13} /> Export Report</button>
           {!isDirector && (
             <button onClick={() => setShowReset(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Reset all data"><RotateCcw size={13} /></button>
           )}
@@ -1141,6 +1156,18 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       </Modal>
 
       {showWizard && <OnboardingWizard onComplete={completeWizard} onSkip={skipWizard} />}
+
+      {showWeeklyCheckIn && objective && (
+        <WeeklyCheckIn
+          objective={objective}
+          krs={krs}
+          scope={state.activeScope}
+          weekNumber={state.weekNumber}
+          checkins={checkins}
+          onClose={() => setShowWeeklyCheckIn(false)}
+          onSubmitted={refreshCheckins}
+        />
+      )}
     </div>
   );
 }

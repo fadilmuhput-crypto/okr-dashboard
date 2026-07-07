@@ -131,10 +131,13 @@ Semua prioritas diuji terhadap North Star Metric: **Weekly Review Completion Rat
 ### P3 — Monetisasi & Tim (setelah retention 3-minggu ≥ 20%)
 | # | Fitur | Catatan |
 |---|-------|---------|
-| 12 | Team workspace + goal alignment hierarchy (Company → Dept → Team → Individual) | Fitur pembeda tier Team |
-| 13 | Billing (Midtrans / Lemon Squeezy) + paywall Free/Pro/Team | Sesuai tier brief |
-| 14 | AI Coach layer LLM (pembungkus bahasa + rekomendasi kontekstual) | Upgrade dari rule-based v0 |
-| 15 | Integrasi (Slack, Google Calendar, Notion) | Future opportunities brief |
+| 12 | **Projects** — generalisasi scope `personal`/`team` hardcode jadi container bernama-bebas (mis. "Karier", "Bisnis Sampingan"); free tier dibatasi 2 project, Pro/Team unlimited | Paywall utama — lihat catatan di bawah |
+| 13 | Team workspace + goal alignment hierarchy (Company → Dept → Team → Individual) | Fitur pembeda tier Team |
+| 14 | Billing (Midtrans / Lemon Squeezy) + paywall Free/Pro/Team | Sesuai tier brief |
+| 15 | AI Coach layer LLM (pembungkus bahasa + rekomendasi kontekstual) | Upgrade dari rule-based v0 |
+| 16 | Integrasi (Slack, Google Calendar, Notion) | Future opportunities brief |
+
+**Keputusan model monetisasi — Projects (7 Jul 2026):** limit paywall diletakkan di *jumlah project* (kapasitas organisasi), bukan di penggunaan inti (check-in mingguan, jumlah KR, dsb). Ini sengaja — menggerakkan revenue tanpa mengorbankan NSM yang sedang divalidasi, dan justru mengunci pengguna intent tinggi (entrepreneur/SMB yang mengelola beberapa venture) yaitu persis segmen target tier berbayar. Implikasi arsitektur: field `activeScope: 'personal'|'team'` di state perlu diganti/dibungkus jadi array `projects[]` bernama bebas sebelum fitur ini dibangun — perubahan skema, bukan sekadar UI.
 
 **Gate keputusan:** jangan bangun P3 sebelum 3-week retention ≥ 20%. Kalau ritual mingguan tidak terbentuk, perbaiki P0–P1 dulu.
 

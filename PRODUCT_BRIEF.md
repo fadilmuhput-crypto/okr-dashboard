@@ -47,17 +47,22 @@
 ## 3. Fitur yang Sudah Dikembangkan
 
 ### Core (Working View)
-- **Objective management** — multiple objectives per scope, scope Personal & Team terpisah
+- **Projects** — container bernama bebas (bukan lagi hardcode Personal/Team), bisa dimiliki bersama beberapa user (lihat Kolaborasi di bawah)
+- **Objective management** — multiple objectives per project
 - **Key Results** (maks 5 per objective) — 2 tipe: target angka (baseline → current → target, unit bebas) dan deadline (% complete + due date)
 - **Confidence slider 0–1** per KR (step 0.05) dengan status otomatis: 🟢 On Track (≥0.7) · 🟡 Watch (≥0.5) · 🔴 At Risk (<0.5)
 - **Key Initiatives** per KR — driver (owner), contributors, 5 status (To Do / In Progress / On Hold / Cancelled / Done), tanggal mulai-selesai, deteksi **delayed** otomatis dari due date
 - **Inline editing** di seluruh dashboard — tanpa form terpisah
-- **Week selector** 1–13 (siklus kuartalan)
+- **Week selector** 1–13 (siklus kuartalan, per-project)
+- **Dua skema tampilan**: Cards (default, full editing termasuk initiatives) dan Tree (Objective→KR bertingkat, ringkas untuk overview mingguan)
+
+### Kolaborasi & Profile
+- **Undang teman ke satu board** — owner generate invite link, siapa saja yang buka+login otomatis jadi member; member bisa edit penuh (objectives/KR/confidence), tidak bisa invite/delete (owner-only)
+- **Profile & Projects modal** — info akun (nama/email/plan), daftar semua project dengan role, aksi rename/invite/delete
+- **Server-side plan enforcement** — free tier dibatasi 2 project **owned** (field `users.plan`), dicek di backend bukan cuma UI
 
 ### Director View
-- Stat cards: rata-rata confidence, jumlah KR on track / watch / at risk, initiatives delayed
-- Portfolio health bar (semua KR lintas scope dalam satu visual)
-- Semua Objective at a glance, klik untuk lompat ke Working View
+- **Disembunyikan (8 Jul 2026)** atas permintaan user — komponennya masih ada di kode (tidak dihapus), tinggal restore tombol toggle-nya kalau dibutuhkan lagi. Sebelumnya: stat cards rata-rata confidence, portfolio health bar lintas semua Objective, klik untuk lompat ke Working View
 
 ### Check-in Generator
 - Laporan markdown lengkap sekali klik: overall status per scope, progress semua KR + initiatives, daftar at-risk, daftar delayed, KR on track, template "Plan Next Week" & exec summary
@@ -78,12 +83,15 @@
 
 | Layer | Teknologi |
 |-------|-----------|
-| Frontend | React 19 + Vite, inline styles, lucide-react icons |
-| Data | **localStorage only** — privacy-first, tanpa akun, tanpa server |
-| Hosting | Vercel (static, SPA rewrites via vercel.json) |
+| Frontend | React 19 + Vite, plain JS, inline styles, lucide-react icons |
+| Backend | **Cloudflare Workers** (`worker/index.js`, `worker/auth.js`, `worker/projects.js`) |
+| Database | **Cloudflare D1** (SQLite) — `owntheway-db`. Tabel: `users`, `sessions`, `projects`, `project_members`, `project_invites`, `checkins`, `okr_state` (legacy, sudah tidak dipakai) |
+| Auth | Hand-rolled — PBKDF2 (Web Crypto) + session token di cookie httpOnly, bukan library pihak ketiga |
+| Hosting | Cloudflare Workers Builds — auto-deploy dari push ke `main`, live di **owntheway.my.id** |
+| Analytics | GA4 (`G-REEFF5BJVD`) + Google Search Console terverifikasi |
 | Repo | github.com/fadilmuhput-crypto/okr-dashboard |
 
-**Implikasi strategis localStorage:** friksi masuk nol (kekuatan akuisisi) tapi data terikat 1 browser (kelemahan retensi — hilang kalau ganti device/clear cache). Backend (Supabase) direncanakan di fase Retention.
+**Evolusi arsitektur data:** dimulai dari localStorage-only (P0 awal) → migrasi ke `okr_state` (JSON blob per-user di D1, P0 #2) → migrasi ke `projects` sebagai baris D1 tersendiri (8 Jul 2026), didorong oleh kebutuhan kolaborasi ("undang teman ke satu board") yang tidak mungkin dilakukan selama data project masih terkubur di dalam blob satu user. Setiap migrasi dieksekusi tanpa kehilangan data pengguna yang sudah ada.
 
 ---
 
@@ -131,13 +139,20 @@ Semua prioritas diuji terhadap North Star Metric: **Weekly Review Completion Rat
 ### P3 — Monetisasi & Tim (setelah retention 3-minggu ≥ 20%)
 | # | Fitur | Catatan |
 |---|-------|---------|
-| 12 | ✅ **Projects** — generalisasi scope `personal`/`team` hardcode jadi container bernama-bebas; free tier dibatasi 2 project | **Selesai 7 Jul 2026** — lihat catatan di bawah |
-| 13 | Team workspace + goal alignment hierarchy (Company → Dept → Team → Individual) | Fitur pembeda tier Team |
-| 14 | Billing (Midtrans / Lemon Squeezy) + paywall Free/Pro/Team | Sesuai tier brief — **prasyarat untuk enforcement limit Projects yang sesungguhnya** |
+| 12 | ✅ **Projects** — project sebagai entitas bersama (bukan lagi JSON per-user), free tier dibatasi 2 project **owned** | **Selesai 8 Jul 2026, enforcement server-side** |
+| 12b | ✅ **Undang teman ke satu board** — invite link, member edit bersama, riwayat checkin shared | **Selesai 8 Jul 2026** |
+| 13 | Team workspace + goal alignment hierarchy (Company → Dept → Team → Individual) | Sebagian tercapai lewat Projects+invite; hierarchy Company→Dept masih belum |
+| 14 | Billing (Midtrans / Lemon Squeezy) + paywall Free/Pro/Team | Sesuai tier brief — server-side limit sudah siap menunggu ini |
 | 15 | AI Coach layer LLM (pembungkus bahasa + rekomendasi kontekstual) | Upgrade dari rule-based v0 |
 | 16 | Integrasi (Slack, Google Calendar, Notion) | Future opportunities brief |
 
-**Projects — selesai dibangun (7 Jul 2026, dieksekusi lebih awal dari gate P3 atas permintaan user):** state `activeScope: 'personal'|'team'` diganti jadi `activeProjectId` + array `projects[]` (id, name, objectives, activeObjectiveId bebas nama). UI: buat/rename/hapus project (tidak bisa hapus project terakhir), warna accent otomatis dari palet berdasarkan index. Limit 2 project untuk free tier — begitu coba bikin project ke-3, muncul modal upgrade (paywall messaging saja, tombol "Upgrade to Pro" disabled karena billing belum ada). Data lama (personal/team) otomatis termigrasi tanpa kehilangan data saat load pertama. **Catatan penting:** limit 2 project ini baru client-side (dicek di JS saat submit form), belum ada field `plan`/`tier` di tabel `users` — jadi bukan enforcement yang keras. Begitu item #14 (billing) dibangun, perlu ditambahkan pengecekan server-side juga.
+**Projects + Invite — selesai dibangun (8 Jul 2026, dieksekusi lebih awal dari gate P3 atas permintaan user):** Redesign arsitektur — project sekarang baris D1 tersendiri (`projects`, `project_members`, `project_invites` — lihat `migrations/0002_projects.sql`), bukan lagi JSON bersarang di dalam blob satu user. Ini prasyarat wajib supaya satu project bisa dipakai bersama (kolaborasi nyata, bukan sekadar UI).
+- **Limit 2 project (owned) — enforcement SERVER-SIDE**, bukan cuma client-side lagi. Field `users.plan` (default `'free'`) jadi sumber kebenaran.
+- **Invite**: owner generate link (`/app?invite=CODE`) → siapa saja yang buka link + login otomatis join sebagai member. Member bisa edit penuh (objectives/KR/confidence), tapi tidak bisa invite orang lain atau hapus project (keduanya owner-only, dicek server-side).
+- **Checkin history** sekarang scoped by project membership (bukan submitter) — kalau 2 orang share 1 project, keduanya lihat riwayat check-in gabungan.
+- **Profile & Projects modal** — akun (nama/email/plan) + daftar semua project dengan role, aksi rename/invite/delete langsung dari situ.
+- **Data user asli (akun kamu sendiri, fadil.mhputra@gmail.com) dimigrasi manual sebelum deploy** — 2 project (Personal 3 objective/14 KR, Team kosong) dipindah dari `okr_state` blob lama ke tabel baru, diverifikasi utuh sebelum dan sesudah deploy.
+- Terverifikasi end-to-end dengan 2 akun asli (Alice+Bob, bukan cuma curl): invite→join→edit bersama→terlihat real-time, limit blocking di percobaan project ke-3, role-gating UI (member tidak lihat tombol delete).
 
 **Gate keputusan:** jangan bangun P3 sebelum 3-week retention ≥ 20%. Kalau ritual mingguan tidak terbentuk, perbaiki P0–P1 dulu.
 

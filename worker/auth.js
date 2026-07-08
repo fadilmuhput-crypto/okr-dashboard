@@ -74,7 +74,7 @@ export async function getUserFromRequest(request, db) {
   const token = getCookie(request, 'session');
   if (!token) return null;
   const row = await db
-    .prepare('SELECT users.id, users.email, users.name FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token = ? AND sessions.expires_at > ?')
+    .prepare('SELECT users.id, users.email, users.name, users.plan FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token = ? AND sessions.expires_at > ?')
     .bind(token, Date.now())
     .first();
   return row || null;

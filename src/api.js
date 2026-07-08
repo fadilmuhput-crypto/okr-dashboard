@@ -19,8 +19,15 @@ export const api = {
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
-  getState: () => request('/state'),
-  putState: (state) => request('/state', { method: 'PUT', body: JSON.stringify({ state }) }),
+
+  getProjects: () => request('/projects'),
+  createProject: (name) => request('/projects', { method: 'POST', body: JSON.stringify({ name }) }),
+  updateProject: (id, patch) => request(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  deleteProject: (id) => request(`/projects/${id}`, { method: 'DELETE' }),
+  createInvite: (projectId) => request(`/projects/${projectId}/invite`, { method: 'POST' }),
+  acceptInvite: (code) => request(`/invites/${code}/accept`, { method: 'POST' }),
+  getMembers: (projectId) => request(`/projects/${projectId}/members`),
+
   getCheckins: () => request('/checkins'),
   postCheckin: (checkin) => request('/checkins', { method: 'POST', body: JSON.stringify(checkin) }),
 };

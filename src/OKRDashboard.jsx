@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, RotateCcw, Sparkles, FileText, Check, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, LayoutDashboard, ListChecks, ArrowRight } from 'lucide-react';
+import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, GitBranch, UserCircle, UserPlus } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
 import WeeklyCheckIn from './WeeklyCheckIn.jsx';
 import { computeCoachInsights } from './coach.js';
 import { Lightbulb, Pencil } from 'lucide-react';
-
-const STORAGE_KEY = 'okr-dashboard-state-v4';
 
 const C = {
   primary: '#E72D33',
@@ -42,43 +40,6 @@ const STATUS_ORDER = ['todo', 'in_progress', 'hold', 'cancelled', 'done'];
 
 const PROJECT_COLORS = [C.primary, C.secondary, '#7C3AED', '#059669', '#D97706', '#DB2777'];
 const FREE_PROJECT_LIMIT = 2;
-const newProjectId = () => `proj_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-
-const DEFAULT_STATE = {
-  activeProjectId: 'personal',
-  weekNumber: 1,
-  viewMode: 'working',
-  projects: [
-    { id: 'personal', name: 'Personal', objectives: [{ id: 'po1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'po1' },
-    { id: 'team', name: 'Team', objectives: [{ id: 'to1', objective: '', whyNow: '', krs: [] }], activeObjectiveId: 'to1' }
-  ]
-};
-
-// Converts pre-Projects state ({ activeScope, personal: {...}, team: {...} })
-// into the projects[] shape. Anything already on the new shape passes through.
-function migrateState(raw) {
-  if (!raw) return DEFAULT_STATE;
-  if (Array.isArray(raw.projects)) {
-    return {
-      weekNumber: raw.weekNumber || 1,
-      viewMode: raw.viewMode || 'working',
-      activeProjectId: raw.activeProjectId || raw.projects[0]?.id,
-      projects: raw.projects.length ? raw.projects : DEFAULT_STATE.projects,
-    };
-  }
-  if (raw.personal || raw.team) {
-    const projects = [];
-    if (raw.personal) projects.push({ id: 'personal', name: 'Personal', objectives: raw.personal.objectives || [], activeObjectiveId: raw.personal.activeObjectiveId });
-    if (raw.team) projects.push({ id: 'team', name: 'Team', objectives: raw.team.objectives || [], activeObjectiveId: raw.team.activeObjectiveId });
-    return {
-      weekNumber: raw.weekNumber || 1,
-      viewMode: raw.viewMode || 'working',
-      activeProjectId: raw.activeScope === 'team' ? 'team' : 'personal',
-      projects: projects.length ? projects : DEFAULT_STATE.projects,
-    };
-  }
-  return DEFAULT_STATE;
-}
 
 const SAMPLE_PERSONAL_OBJECTIVES = [
   {
@@ -652,7 +613,7 @@ function ProjectTabs({ projects, activeId, onSelect, onAdd, onRename, onDelete }
                 <button onClick={(e) => { e.stopPropagation(); onRename(p.id); }} title="Rename project" style={{ background: 'none', border: 'none', cursor: 'pointer', color: active ? C.white : C.muted, display: 'flex', padding: 0, opacity: 0.8 }}>
                   <Pencil size={10} />
                 </button>
-                {projects.length > 1 && (
+                {projects.length > 1 && p.role === 'owner' && (
                   <button onClick={(e) => { e.stopPropagation(); onDelete(p.id); }} title="Delete project" style={{ background: 'none', border: 'none', cursor: 'pointer', color: active ? C.white : C.muted, display: 'flex', padding: 0, opacity: 0.8 }}>
                     <X size={11} />
                   </button>
@@ -825,55 +786,243 @@ function EmptyState({ onAdd, onSample, onWizard, accentColor }) {
   );
 }
 
+function NoProjectsState({ onAdd, onWizard }) {
+  return (
+    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '48px 24px', textAlign: 'center' }}>
+      <div style={{ width: 48, height: 48, borderRadius: 12, background: C.redSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Target size={22} color={C.primary} /></div>
+      <div style={{ fontSize: 18, fontWeight: 600, color: C.text, marginBottom: 6 }}>You don't have any projects yet</div>
+      <div style={{ fontSize: 13, color: C.muted, maxWidth: 420, margin: '0 auto 24px', lineHeight: 1.5 }}>
+        A project holds one or more Objectives and their Key Results — start your own, or ask a teammate for an invite link to join theirs.
+      </div>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <button onClick={onWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: C.primary, color: C.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Target size={14} /> Mulai dengan Panduan</button>
+        <button onClick={onAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Plus size={14} /> Create a project</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Tree view — same Objective→KR→Initiative data as the card layout,
+// rendered as a nested hierarchy. Initiatives are read-only here (status +
+// title only); switch to Cards for full initiative editing (contributors,
+// dates, driver). Objective title, KR label, and confidence stay editable
+// in both views since those are the fields touched every week.
+function TreeInitiativeRow({ ini }) {
+  const m = STATUS_META[ini.status];
+  const Icon = m.icon;
+  return (
+    <div style={{ marginLeft: 24, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12, borderLeft: `2px solid ${C.borderLight}` }}>
+      <Icon size={11} color={m.color} />
+      <span style={{ flex: 1, color: C.text, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ini.title || 'Untitled initiative'}</span>
+      <TimelinessBadge ini={ini} />
+    </div>
+  );
+}
+
+function TreeKRRow({ kr, onUpdate, onDelete }) {
+  const [expanded, setExpanded] = useState(false);
+  const progress = Math.round(calcKRProgress(kr));
+  const color = confColor(kr.confidence);
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, flexWrap: 'wrap' }}>
+        <button onClick={() => setExpanded(e => !e)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', padding: 0, flexShrink: 0 }}>
+          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </button>
+        <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+          <InlineEdit value={kr.label} onChange={(v) => onUpdate({ label: v })} placeholder="Key Result…" fontSize={13} fontWeight={600} />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color, minWidth: 36, textAlign: 'right', flexShrink: 0 }}>{progress}%</span>
+        <div style={{ flexShrink: 0 }}>
+          <ConfidenceSlider value={kr.confidence} onChange={(v) => onUpdate({ confidence: v })} />
+        </div>
+        <button onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', flexShrink: 0 }} title="Delete KR"><Trash2 size={13} /></button>
+      </div>
+      {expanded && (
+        <div style={{ marginTop: 6 }}>
+          {kr.initiatives.length === 0 ? (
+            <div style={{ marginLeft: 24, fontSize: 11.5, color: C.muted, padding: '4px 0' }}>No initiatives yet — add one from Cards view.</div>
+          ) : (
+            kr.initiatives.map((ini) => <TreeInitiativeRow key={ini.id} ini={ini} />)
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TreeView({ krs, onUpdateKR, onDeleteKR }) {
+  return (
+    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <GitBranch size={12} /> Key Results
+      </div>
+      {krs.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: C.muted, textAlign: 'center', padding: '12px 0' }}>No Key Results yet — switch to Cards to add one.</div>
+      ) : (
+        krs.map((kr) => (
+          <TreeKRRow key={kr.id} kr={kr} onUpdate={(u) => onUpdateKR(kr.id, u)} onDelete={() => onDeleteKR(kr.id)} />
+        ))
+      )}
+    </div>
+  );
+}
+
+const smallBtnStyle = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 11.5, fontWeight: 600, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' };
+
+function ProfileProjectRow({ project, isActive, color, onSwitch, onRename, onDelete }) {
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+  const [inviteErr, setInviteErr] = useState('');
+  const [members, setMembers] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const toggleInvite = async () => {
+    if (showInvite) { setShowInvite(false); return; }
+    setShowInvite(true);
+    setInviteErr('');
+    setInviteLink('');
+    try {
+      const { code } = await api.createInvite(project.id);
+      setInviteLink(`${window.location.origin}/app?invite=${code}`);
+    } catch (e) { setInviteErr(e.message); }
+    try {
+      const { members } = await api.getMembers(project.id);
+      setMembers(members);
+    } catch (e) { /* non-critical */ }
+  };
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (e) { /* ignore */ }
+  };
+
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 4, background: color, flexShrink: 0 }} />
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+        <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', color: C.muted, background: C.grayPill, padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>{project.role}</span>
+        {isActive && <span style={{ fontSize: 9.5, fontWeight: 700, color: C.green, flexShrink: 0 }}>ACTIVE</span>}
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+        {!isActive && <button onClick={onSwitch} style={smallBtnStyle}>Switch to</button>}
+        <button onClick={onRename} style={smallBtnStyle}><Pencil size={10} /> Rename</button>
+        {project.role === 'owner' && <button onClick={toggleInvite} style={smallBtnStyle}><UserPlus size={11} /> Invite</button>}
+        {project.role === 'owner' && <button onClick={onDelete} style={{ ...smallBtnStyle, color: C.red }}><Trash2 size={10} /> Delete</button>}
+      </div>
+      {showInvite && (
+        <div style={{ marginTop: 10, padding: 10, background: C.bg, borderRadius: 6 }}>
+          {inviteErr ? (
+            <div style={{ fontSize: 12, color: C.red }}>{inviteErr}</div>
+          ) : inviteLink ? (
+            <>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Share this link — anyone who opens it and signs in joins this project:</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input readOnly value={inviteLink} onFocus={(e) => e.target.select()} style={{ flex: 1, fontSize: 11.5, padding: '6px 8px', border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', background: C.white, color: C.text, minWidth: 0 }} />
+                <button onClick={copyLink} style={{ ...smallBtnStyle, whiteSpace: 'nowrap' }}>{copied ? 'Copied!' : 'Copy'}</button>
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 12, color: C.muted }}>Generating…</div>
+          )}
+          {members && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', marginBottom: 6 }}>Members ({members.length})</div>
+              {members.map((m) => (
+                <div key={m.id} style={{ fontSize: 12, color: C.text, display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                  <span>{m.name || m.email}</span>
+                  <span style={{ color: C.muted, fontSize: 10, textTransform: 'uppercase' }}>{m.role}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfileModal({ user, projects, activeProjectId, onSwitch, onRename, onDelete }) {
+  return (
+    <div>
+      <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.borderLight}` }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Account</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{user.name || user.email}</div>
+        <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{user.email}</div>
+        <span style={{ display: 'inline-flex', marginTop: 8, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 10, background: user.plan === 'free' ? C.grayPill : C.greenSoft, color: user.plan === 'free' ? C.muted : C.green }}>
+          {user.plan === 'free' ? 'Free plan' : 'Pro plan'}
+        </span>
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+        Your Projects ({projects.length}{user.plan === 'free' ? `/${FREE_PROJECT_LIMIT} owned` : ''})
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {projects.map((p, i) => (
+          <ProfileProjectRow
+            key={p.id} project={p} isActive={p.id === activeProjectId} color={PROJECT_COLORS[i % PROJECT_COLORS.length]}
+            onSwitch={() => onSwitch(p.id)} onRename={() => onRename(p.id)} onDelete={() => onDelete(p.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function OKRDashboard({ user, onLogout }) {
-  const [state, setState] = useState(DEFAULT_STATE);
+  const [projects, setProjects] = useState([]);
+  const [activeProjectId, setActiveProjectId] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [viewScheme, setViewScheme] = useState('cards'); // 'cards' | 'tree'
   const [showAddKR, setShowAddKR] = useState(false);
   const [showCheckIn, setShowCheckIn] = useState(false);
-  const [showReset, setShowReset] = useState(false);
   const [deleteKRTarget, setDeleteKRTarget] = useState(null);
   const [deleteObjTarget, setDeleteObjTarget] = useState(null);
   const [checkInDraft, setCheckInDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const [storageWarning, setStorageWarning] = useState('');
   const [showWizard, setShowWizard] = useState(false);
-  const [migrated, setMigrated] = useState(false);
   const [checkins, setCheckins] = useState([]);
   const [showWeeklyCheckIn, setShowWeeklyCheckIn] = useState(false);
   const [showAddProject, setShowAddProject] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [renameProjectTarget, setRenameProjectTarget] = useState(null);
   const [deleteProjectTarget, setDeleteProjectTarget] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
   const saveTimer = useRef(null);
 
-  // Load order: server state (source of truth once signed in) → else a
-  // one-time migration from this browser's localStorage (pre-auth data) →
-  // else fresh wizard for first-time users.
+  // Load order: accept a pending invite (if the URL carries one) → fetch
+  // every project the user is a member of → else show the wizard for
+  // first-timers. Projects are first-class server rows now (see
+  // migrations/0002_projects.sql), not a single JSON blob per user, so
+  // multiple people can share one project.
   useEffect(() => {
     (async () => {
-      let localParsed = null;
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) localParsed = JSON.parse(raw);
-      } catch (e) {
-        console.warn('OKR dashboard: could not read local backup', e);
+      let joinNote = '';
+      const params = new URLSearchParams(window.location.search);
+      const inviteCode = params.get('invite');
+      if (inviteCode) {
+        try { await api.acceptInvite(inviteCode); }
+        catch (e) { joinNote = e.message; }
+        window.history.replaceState({}, '', '/app');
       }
 
       try {
-        const { state: remoteState } = await api.getState();
-        if (remoteState) {
-          setState(migrateState(remoteState));
-        } else if (localParsed) {
-          const merged = migrateState(localParsed);
-          setState(merged);
-          await api.putState(merged);
-          setMigrated(true);
-        } else if (!localStorage.getItem('okr-wizard-done')) {
-          setShowWizard(true);
+        const { projects: serverProjects } = await api.getProjects();
+        setProjects(serverProjects);
+        if (serverProjects.length > 0) {
+          let lastActive = null;
+          try { lastActive = localStorage.getItem('okr-last-project'); } catch (e) { /* ignore */ }
+          const initial = serverProjects.find(p => p.id === lastActive) || serverProjects[serverProjects.length - 1];
+          setActiveProjectId(initial.id);
+        } else {
+          let wizardDone = false;
+          try { wizardDone = !!localStorage.getItem('okr-wizard-done'); } catch (e) { /* ignore */ }
+          if (!wizardDone) setShowWizard(true);
         }
+        if (joinNote) setStorageWarning(joinNote);
       } catch (e) {
-        setStorageWarning('Could not reach the server — showing your local copy. Changes may not sync.');
-        if (localParsed) setState(migrateState(localParsed));
+        setStorageWarning('Could not reach the server. Try reloading.');
       } finally {
         setLoaded(true);
       }
@@ -885,48 +1034,50 @@ export default function OKRDashboard({ user, onLogout }) {
   const refreshCheckins = () => { api.getCheckins().then((r) => setCheckins(r.checkins)).catch(() => {}); };
 
   useEffect(() => {
-    if (!loaded) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* best-effort local backup */ }
-      try {
-        await api.putState(state);
-        setStorageWarning('');
-      } catch (e) {
-        setStorageWarning('Could not save to server — changes are kept locally until reconnected.');
-      }
-    }, 400);
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [state, loaded]);
+    if (activeProjectId) {
+      try { localStorage.setItem('okr-last-project', activeProjectId); } catch (e) { /* ignore */ }
+    }
+  }, [activeProjectId]);
 
-  const projectIndex = Math.max(0, state.projects.findIndex(p => p.id === state.activeProjectId));
-  const activeProject = state.projects[projectIndex] || state.projects[0];
-  const objectives = activeProject.objectives;
-  const objective = objectives.find(o => o.id === activeProject.activeObjectiveId) || objectives[0];
+  const activeProject = projects.find(p => p.id === activeProjectId) || projects[0];
+  const projectIndex = activeProject ? projects.findIndex(p => p.id === activeProject.id) : 0;
+  const objectives = activeProject ? activeProject.objectives : [];
+  const objective = objectives.find(o => o.id === activeProject?.activeObjectiveId) || objectives[0];
   const krs = objective ? objective.krs : [];
   const allInitiatives = krs.flatMap(k => k.initiatives);
   const overallConf = krs.length ? krs.reduce((s, k) => s + k.confidence, 0) / krs.length : 0;
   const atRiskCount = krs.filter(k => k.confidence < 0.5).length;
   const delayedCount = allInitiatives.filter(i => timeliness(i) === 'delayed').length;
-  const accentColor = PROJECT_COLORS[projectIndex % PROJECT_COLORS.length];
+  const accentColor = PROJECT_COLORS[Math.max(0, projectIndex) % PROJECT_COLORS.length];
 
-  const updateProject = (projectId, updater) => setState(s => ({
-    ...s, projects: s.projects.map(p => p.id === projectId ? updater(p) : p)
-  }));
+  // Debounced save — PATCHes only the active project's own row. Renaming,
+  // creating, or deleting a project go through their own direct API calls
+  // below (explicit actions, not part of the continuous-edit autosave).
+  useEffect(() => {
+    if (!loaded || !activeProject) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const { id, objectives: objs, activeObjectiveId, weekNumber: wn } = activeProject;
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await api.updateProject(id, { objectives: objs, activeObjectiveId, weekNumber: wn });
+        setStorageWarning('');
+      } catch (e) {
+        setStorageWarning('Could not save — changes may not persist.');
+      }
+    }, 400);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [projects, activeProjectId, loaded]);
 
-  const updateObjField = (field, value) => updateProject(activeProject.id, (p) => ({
+  const updateProjectLocal = (projectId, updater) => setProjects(prev => prev.map(p => p.id === projectId ? updater(p) : p));
+
+  const updateObjField = (field, value) => updateProjectLocal(activeProject.id, (p) => ({
     ...p, objectives: p.objectives.map(o => o.id === objective.id ? { ...o, [field]: value } : o)
   }));
 
-  const selectObjective = (id) => updateProject(activeProject.id, (p) => ({ ...p, activeObjectiveId: id }));
-
-  const jumpTo = (projectId, objId) => setState(s => ({
-    ...s, activeProjectId: projectId, viewMode: 'working',
-    projects: s.projects.map(p => p.id === projectId ? { ...p, activeObjectiveId: objId } : p)
-  }));
+  const selectObjective = (id) => updateProjectLocal(activeProject.id, (p) => ({ ...p, activeObjectiveId: id }));
 
   const addObjective = () => {
-    updateProject(activeProject.id, (p) => {
+    updateProjectLocal(activeProject.id, (p) => {
       const newObj = { id: newId(p.id + 'o', p.objectives), objective: '', whyNow: '', krs: [] };
       return { ...p, objectives: [...p.objectives, newObj], activeObjectiveId: newObj.id };
     });
@@ -934,7 +1085,7 @@ export default function OKRDashboard({ user, onLogout }) {
 
   const confirmDeleteObjective = () => {
     if (!deleteObjTarget) return;
-    updateProject(activeProject.id, (p) => {
+    updateProjectLocal(activeProject.id, (p) => {
       const remaining = p.objectives.filter(o => o.id !== deleteObjTarget);
       const nextActive = p.activeObjectiveId === deleteObjTarget ? (remaining[0] ? remaining[0].id : null) : p.activeObjectiveId;
       return { ...p, objectives: remaining, activeObjectiveId: nextActive };
@@ -942,12 +1093,12 @@ export default function OKRDashboard({ user, onLogout }) {
     setDeleteObjTarget(null);
   };
 
-  const updateKR = (id, updates) => updateProject(activeProject.id, (p) => ({
+  const updateKR = (id, updates) => updateProjectLocal(activeProject.id, (p) => ({
     ...p, objectives: p.objectives.map(o => o.id === objective.id ? { ...o, krs: o.krs.map(k => k.id === id ? { ...k, ...updates } : k) } : o)
   }));
 
   const addKR = (kr) => {
-    updateProject(activeProject.id, (p) => {
+    updateProjectLocal(activeProject.id, (p) => {
       const obj = p.objectives.find(o => o.id === activeProject.activeObjectiveId);
       if (!obj || obj.krs.length >= 5) return p;
       return { ...p, objectives: p.objectives.map(o => o.id === obj.id ? { ...o, krs: [...o.krs, { id: newId(obj.id + 'k', o.krs), ...kr }] } : o) };
@@ -957,14 +1108,14 @@ export default function OKRDashboard({ user, onLogout }) {
 
   const confirmDeleteKR = () => {
     if (!deleteKRTarget) return;
-    updateProject(activeProject.id, (p) => ({
+    updateProjectLocal(activeProject.id, (p) => ({
       ...p, objectives: p.objectives.map(o => o.id === objective.id ? { ...o, krs: o.krs.filter(k => k.id !== deleteKRTarget) } : o)
     }));
     setDeleteKRTarget(null);
   };
 
   const mutateKRInitiatives = (krId, fn) => {
-    updateProject(activeProject.id, (p) => ({
+    updateProjectLocal(activeProject.id, (p) => ({
       ...p,
       objectives: p.objectives.map(o => o.id === objective.id
         ? { ...o, krs: o.krs.map(k => k.id === krId ? { ...k, initiatives: fn(k.initiatives, k) } : k) }
@@ -975,14 +1126,26 @@ export default function OKRDashboard({ user, onLogout }) {
   const updateIniInKR = (krId, iniId, updates) => mutateKRInitiatives(krId, (inis) => inis.map(i => i.id === iniId ? { ...i, ...updates } : i));
   const deleteIniFromKR = (krId, iniId) => mutateKRInitiatives(krId, (inis) => inis.filter(i => i.id !== iniId));
 
-  const loadSample = () => updateProject(activeProject.id, (p) =>
+  const loadSample = () => updateProjectLocal(activeProject.id, (p) =>
     projectIndex === 0
       ? { ...p, objectives: SAMPLE_PERSONAL_OBJECTIVES, activeObjectiveId: SAMPLE_PERSONAL_OBJECTIVES[0].id }
       : { ...p, objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
   );
 
-  const completeWizard = (obj) => {
-    updateProject(activeProject.id, (p) => ({ ...p, objectives: [obj], activeObjectiveId: obj.id }));
+  const completeWizard = async (obj) => {
+    if (projects.length === 0) {
+      try {
+        const { project } = await api.createProject('Personal');
+        const filled = { ...project, objectives: [obj], activeObjectiveId: obj.id };
+        setProjects([filled]);
+        setActiveProjectId(project.id);
+        await api.updateProject(project.id, { objectives: [obj], activeObjectiveId: obj.id });
+      } catch (e) {
+        setStorageWarning('Could not create your first project — try reloading.');
+      }
+    } else {
+      updateProjectLocal(activeProject.id, (p) => ({ ...p, objectives: [obj], activeObjectiveId: obj.id }));
+    }
     try { localStorage.setItem('okr-wizard-done', '1'); } catch (e) {}
     setShowWizard(false);
   };
@@ -992,41 +1155,50 @@ export default function OKRDashboard({ user, onLogout }) {
     setShowWizard(false);
   };
 
-  const handleReset = () => {
-    setState(DEFAULT_STATE);
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-    setShowReset(false);
-  };
-
   // Project management — create/rename/delete, with the Free-tier project
-  // count gate. Billing itself (P3) isn't built; this is just the limit +
-  // upsell messaging so the paywall UX can be tested before payments exist.
-  const addProject = (name) => {
-    if (state.projects.length >= FREE_PROJECT_LIMIT) { setShowUpgradeModal(true); return; }
-    const id = newProjectId();
-    const obj = { id: id + 'o1', objective: '', whyNow: '', krs: [] };
-    setState(s => ({
-      ...s,
-      activeProjectId: id,
-      projects: [...s.projects, { id, name: name.trim() || 'New Project', objectives: [obj], activeObjectiveId: obj.id }]
-    }));
-    setShowAddProject(false);
+  // count gate enforced server-side (worker/projects.js); the client check
+  // here is just a fast-path so most attempts never need a round trip.
+  // Billing itself (P3) isn't built — the upgrade modal is messaging only.
+  const addProject = async (name) => {
+    if (user.plan === 'free' && projects.filter(p => p.role === 'owner').length >= FREE_PROJECT_LIMIT) {
+      setShowAddProject(false);
+      setShowUpgradeModal(true);
+      return;
+    }
+    try {
+      const { project } = await api.createProject(name);
+      setProjects(prev => [...prev, project]);
+      setActiveProjectId(project.id);
+      setShowAddProject(false);
+    } catch (e) {
+      setShowAddProject(false);
+      if (e.message.includes('limited to')) setShowUpgradeModal(true);
+      else setStorageWarning(e.message);
+    }
   };
 
-  const renameProject = (id, name) => {
-    setState(s => ({ ...s, projects: s.projects.map(p => p.id === id ? { ...p, name: name.trim() || p.name } : p) }));
+  const renameProject = async (id, name) => {
+    const trimmed = name.trim();
     setRenameProjectTarget(null);
+    if (!trimmed) return;
+    setProjects(prev => prev.map(p => p.id === id ? { ...p, name: trimmed } : p));
+    try { await api.updateProject(id, { name: trimmed }); } catch (e) { setStorageWarning('Could not rename project on the server.'); }
   };
 
-  const confirmDeleteProject = () => {
+  const confirmDeleteProject = async () => {
     if (!deleteProjectTarget) return;
-    setState(s => {
-      const remaining = s.projects.filter(p => p.id !== deleteProjectTarget);
-      if (remaining.length === 0) return s;
-      const nextActive = s.activeProjectId === deleteProjectTarget ? remaining[0].id : s.activeProjectId;
-      return { ...s, activeProjectId: nextActive, projects: remaining };
-    });
+    const id = deleteProjectTarget;
     setDeleteProjectTarget(null);
+    try {
+      await api.deleteProject(id);
+      setProjects(prev => {
+        const remaining = prev.filter(p => p.id !== id);
+        if (activeProjectId === id) setActiveProjectId(remaining[0]?.id || null);
+        return remaining;
+      });
+    } catch (e) {
+      setStorageWarning(e.message || 'Could not delete project.');
+    }
   };
 
   const fmtKRTarget = (k) => k.type === 'deadline' ? `Due ${MONTHS[k.deadlineMonth - 1]} ${k.deadlineYear}` : `${k.current} → ${k.target} ${k.unit}`;
@@ -1063,16 +1235,16 @@ export default function OKRDashboard({ user, onLogout }) {
     const tagOf = (p) => p.name.trim() || 'Untitled';
     const confOf = (sc) => { const k = allKRsOf(sc); return k.length ? k.reduce((a, x) => a + x.confidence, 0) / k.length : 0; };
 
-    const allAtRisk = state.projects.flatMap(p => atRiskOf(p, tagOf(p)));
-    const allOnTrack = state.projects.flatMap(p => onTrackOf(p, tagOf(p)));
-    const allDelayed = state.projects.flatMap(p => delayedOf(p, tagOf(p)));
-    const overallLines = state.projects.map(p => {
+    const allAtRisk = projects.flatMap(p => atRiskOf(p, tagOf(p)));
+    const allOnTrack = projects.flatMap(p => onTrackOf(p, tagOf(p)));
+    const allDelayed = projects.flatMap(p => delayedOf(p, tagOf(p)));
+    const overallLines = projects.map(p => {
       const c = confOf(p);
       return `- **${p.name}**: ${confEmoji(c)} ${c.toFixed(2)} confidence (${confLabel(c)})`;
     }).join('\n');
-    const progressSections = state.projects.map(p => `## ${p.name} OKR Progress\n${fmtScopeBlock(p, p.name)}`).join('\n\n');
+    const progressSections = projects.map(p => `## ${p.name} OKR Progress (Week ${p.weekNumber})\n${fmtScopeBlock(p, p.name)}`).join('\n\n');
 
-    return `# Weekly Check-in — Week ${state.weekNumber}
+    return `# Weekly Check-in${activeProject ? ` — Week ${activeProject.weekNumber}` : ''}
 
 ## Overall Status
 ${overallLines}
@@ -1106,7 +1278,6 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
   const empty = objective && !objective.objective && krs.length === 0 && objectives.length === 1;
   const isMaxKR = krs.length >= 5;
-  const isDirector = state.viewMode === 'exec';
   const isMobile = useIsMobile();
   const padX = isMobile ? 14 : 24;
 
@@ -1117,67 +1288,60 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
           <Logo size={28} />
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.1, letterSpacing: -0.3 }}>Own<span style={{ color: C.primary }}>the</span>Way</div>
-            <div style={{ fontSize: 11, color: C.muted }}>{isDirector ? 'Director View · all Objectives at a glance' : 'Working View · Objective → up to 5 KRs → Initiatives'}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>Objective → up to 5 KRs → Initiatives</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ display: 'inline-flex', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3 }}>
-            <button onClick={() => setState(s => ({ ...s, viewMode: 'working' }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: !isDirector ? C.white : 'transparent', color: !isDirector ? C.text : C.muted, boxShadow: !isDirector ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
-              <ListChecks size={13} /> Working
-            </button>
-            <button onClick={() => setState(s => ({ ...s, viewMode: 'exec' }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: isDirector ? C.white : 'transparent', color: isDirector ? C.text : C.muted, boxShadow: isDirector ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
-              <LayoutDashboard size={13} /> Director
-            </button>
-          </div>
-          {!isDirector && (
+          {activeProject && (
+            <div style={{ display: 'inline-flex', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3 }}>
+              <button onClick={() => setViewScheme('cards')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'cards' ? C.white : 'transparent', color: viewScheme === 'cards' ? C.text : C.muted, boxShadow: viewScheme === 'cards' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+                <ListChecks size={13} /> Cards
+              </button>
+              <button onClick={() => setViewScheme('tree')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'tree' ? C.white : 'transparent', color: viewScheme === 'tree' ? C.text : C.muted, boxShadow: viewScheme === 'tree' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+                <GitBranch size={13} /> Tree
+              </button>
+            </div>
+          )}
+          {activeProject && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6 }}>
               <Calendar size={13} color={C.muted} />
               <span style={{ fontSize: 12, color: C.muted }}>Week</span>
-              <select value={state.weekNumber} onChange={(e) => setState(s => ({ ...s, weekNumber: parseInt(e.target.value, 10) }))} style={{ fontSize: 13, fontWeight: 600, color: C.text, border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <select value={activeProject.weekNumber} onChange={(e) => updateProjectLocal(activeProject.id, (p) => ({ ...p, weekNumber: parseInt(e.target.value, 10) }))} style={{ fontSize: 13, fontWeight: 600, color: C.text, border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
                 {Array.from({ length: 13 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
           )}
-          {!isDirector && objective && (
+          {objective && (
             <button onClick={() => setShowWeeklyCheckIn(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.primary, color: C.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               <Check size={13} /> Weekly Check-in
-              {checkins.some((c) => c.objectiveId === objective.id && c.weekNumber === state.weekNumber) && (
+              {checkins.some((c) => c.objectiveId === objective.id && c.weekNumber === activeProject.weekNumber) && (
                 <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 4, padding: '1px 5px', fontSize: 10 }}>✓</span>
               )}
             </button>
           )}
           <button onClick={openCheckIn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><FileText size={13} /> Export Report</button>
-          {!isDirector && (
-            <button onClick={() => setShowReset(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Reset all data"><RotateCcw size={13} /></button>
-          )}
+          <button onClick={() => setShowProfile(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Profile & Projects"><UserCircle size={15} /></button>
           {user && (
             <button onClick={onLogout} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title={`Sign out (${user.email})`}>Sign out</button>
           )}
         </div>
       </div>
 
-      {migrated && (
-        <div style={{ padding: '8px 24px', background: C.greenSoft, color: '#1E7A47', fontSize: 12, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>✓ Imported the OKRs saved in this browser into your account.</span>
-          <button onClick={() => setMigrated(false)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
-        </div>
-      )}
       {storageWarning && <div style={{ padding: '8px 24px', background: C.yellowSoft, color: '#8B6914', fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
 
-      {isDirector ? (
+      {loaded && projects.length === 0 ? (
         <div style={{ padding: `20px ${padX}px 40px ${padX}px` }}>
-          <DirectorView state={state} onJump={jumpTo} />
-          <div style={{ marginTop: 16, fontSize: 11, color: C.muted, textAlign: 'center' }}>Click any Objective above to open it in Working View.</div>
+          <NoProjectsState onAdd={() => setShowAddProject(true)} onWizard={() => setShowWizard(true)} />
         </div>
-      ) : (
+      ) : activeProject ? (
         <>
           <div style={{ padding: `20px ${padX}px 0 ${padX}px`, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'inline-flex', background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, alignSelf: 'flex-start' }}>
               <ProjectTabs
-                projects={state.projects}
-                activeId={state.activeProjectId}
-                onSelect={(id) => setState(s => ({ ...s, activeProjectId: id }))}
-                onAdd={() => state.projects.length >= FREE_PROJECT_LIMIT ? setShowUpgradeModal(true) : setShowAddProject(true)}
+                projects={projects}
+                activeId={activeProjectId}
+                onSelect={setActiveProjectId}
+                onAdd={() => (user.plan === 'free' && projects.filter(p => p.role === 'owner').length >= FREE_PROJECT_LIMIT) ? setShowUpgradeModal(true) : setShowAddProject(true)}
                 onRename={(id) => setRenameProjectTarget(id)}
                 onDelete={(id) => setDeleteProjectTarget(id)}
               />
@@ -1227,9 +1391,11 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                   </div>
                 </div>
 
-                <CoachPanel objective={objective} krs={krs} checkins={checkins} weekNumber={state.weekNumber} />
+                <CoachPanel objective={objective} krs={krs} checkins={checkins} weekNumber={activeProject.weekNumber} />
 
-                {krs.length === 0 ? (
+                {viewScheme === 'tree' ? (
+                  <TreeView krs={krs} onUpdateKR={updateKR} onDeleteKR={(id) => setDeleteKRTarget(id)} />
+                ) : krs.length === 0 ? (
                   <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '24px 16px', textAlign: 'center' }}>
                     <div style={{ fontSize: 13, color: C.muted, marginBottom: 12 }}>No Key Results yet. Add up to 5 measurable outcomes — each can have its own Key Initiatives.</div>
                     <button onClick={() => setShowAddKR(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: accentColor, color: C.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Plus size={14} /> Add Key Result</button>
@@ -1261,7 +1427,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
             </div>
           </div>
         </>
-      )}
+      ) : null}
 
       <Modal open={showAddKR} onClose={() => setShowAddKR(false)} title={`Add Key Result · ${objective ? (objective.objective || 'this Objective') : ''}`}>
         <AddKRForm onCancel={() => setShowAddKR(false)} onAdd={addKR} />
@@ -1289,7 +1455,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
       <Modal open={!!renameProjectTarget} onClose={() => setRenameProjectTarget(null)} title="Rename Project" maxWidth={420}>
         <ProjectNameForm
-          initialName={state.projects.find(p => p.id === renameProjectTarget)?.name || ''}
+          initialName={projects.find(p => p.id === renameProjectTarget)?.name || ''}
           confirmLabel="Save"
           onCancel={() => setRenameProjectTarget(null)}
           onConfirm={(name) => renameProject(renameProjectTarget, name)}
@@ -1297,7 +1463,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       </Modal>
 
       <Modal open={!!deleteProjectTarget} onClose={() => setDeleteProjectTarget(null)} title="Delete this Project?" maxWidth={420}>
-        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>This removes <strong>every Objective, Key Result, and Key Initiative</strong> in this project. This cannot be undone.</div>
+        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>This removes <strong>every Objective, Key Result, and Key Initiative</strong> in this project for every member. This cannot be undone.</div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={() => setDeleteProjectTarget(null)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Cancel</button>
           <button onClick={confirmDeleteProject} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', background: C.red, color: C.white, borderRadius: 5, cursor: 'pointer' }}>Delete Project</button>
@@ -1306,7 +1472,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
       <Modal open={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} title="Free plan limit reached" maxWidth={420}>
         <div style={{ fontSize: 13, color: C.text, marginBottom: 16, lineHeight: 1.6 }}>
-          The Free plan includes up to <strong>{FREE_PROJECT_LIMIT} projects</strong>. Upgrade to Pro for unlimited projects, plus advanced analytics and AI coaching.
+          The Free plan includes up to <strong>{FREE_PROJECT_LIMIT} owned projects</strong>. Upgrade to Pro for unlimited projects, plus advanced analytics and AI coaching.
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={() => setShowUpgradeModal(false)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Maybe later</button>
@@ -1314,15 +1480,18 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         </div>
       </Modal>
 
-      <Modal open={showReset} onClose={() => setShowReset(false)} title="Reset all data?" maxWidth={420}>
-        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>This clears <strong>every project, Objective, and Key Result</strong> and resets week to 1. This cannot be undone.</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={() => setShowReset(false)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleReset} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', background: C.red, color: C.white, borderRadius: 5, cursor: 'pointer' }}>Reset everything</button>
-        </div>
+      <Modal open={showProfile} onClose={() => setShowProfile(false)} title="Profile & Projects" maxWidth={480}>
+        <ProfileModal
+          user={user}
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onSwitch={(id) => { setActiveProjectId(id); setShowProfile(false); }}
+          onRename={(id) => { setShowProfile(false); setRenameProjectTarget(id); }}
+          onDelete={(id) => { setShowProfile(false); setDeleteProjectTarget(id); }}
+        />
       </Modal>
 
-      <Modal open={showCheckIn} onClose={() => setShowCheckIn(false)} title={`Weekly check-in — Week ${state.weekNumber}`} maxWidth={760}>
+      <Modal open={showCheckIn} onClose={() => setShowCheckIn(false)} title={`Weekly check-in${activeProject ? ` — Week ${activeProject.weekNumber}` : ''}`} maxWidth={760}>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>Edit before copying. Paste into Sheets / Notion / Slack.</div>
         <textarea value={checkInDraft} onChange={(e) => setCheckInDraft(e.target.value)} style={{ width: '100%', minHeight: 400, padding: 12, fontSize: 12, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', border: `1px solid ${C.border}`, borderRadius: 6, resize: 'vertical', outline: 'none', color: C.text, background: C.bg, lineHeight: 1.5, boxSizing: 'border-box' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
@@ -1338,12 +1507,12 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
       {showWizard && <OnboardingWizard onComplete={completeWizard} onSkip={skipWizard} />}
 
-      {showWeeklyCheckIn && objective && (
+      {showWeeklyCheckIn && objective && activeProject && (
         <WeeklyCheckIn
           objective={objective}
           krs={krs}
           scope={activeProject.id}
-          weekNumber={state.weekNumber}
+          weekNumber={activeProject.weekNumber}
           checkins={checkins}
           onClose={() => setShowWeeklyCheckIn(false)}
           onSubmitted={refreshCheckins}

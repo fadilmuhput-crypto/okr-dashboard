@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Target, ArrowRight, ArrowLeft, Check, Plus, X, Gauge } from 'lucide-react';
+import { Target, ArrowRight, ArrowLeft, Check, Plus, X, Gauge, User, Users } from 'lucide-react';
 
 const C = {
   primary: '#E72D33',
@@ -33,13 +33,22 @@ const labelStyle = {
   textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
 };
 
-export default function OnboardingWizard({ onComplete, onSkip }) {
+export default function OnboardingWizard({ onComplete, onSkip, askProjectType = false }) {
   const [step, setStep] = useState(1);
+  const [typeConfirmed, setTypeConfirmed] = useState(!askProjectType);
+  const [projectType, setProjectType] = useState(null);
+  const [projectName, setProjectName] = useState('');
   const [objective, setObjective] = useState('');
   const [whyNow, setWhyNow] = useState('');
   const [krs, setKrs] = useState([{ label: '', baseline: '', target: '', unit: '' }]);
   const [confidences, setConfidences] = useState([]);
   const [err, setErr] = useState('');
+
+  const chooseType = (type) => {
+    setProjectType(type);
+    if (type === 'personal') setProjectName('Personal');
+    else if (!projectName) setProjectName('');
+  };
 
   const validKrs = krs.filter(k => k.label.trim() && k.target !== '');
 
@@ -67,12 +76,10 @@ export default function OnboardingWizard({ onComplete, onSkip }) {
       confidence: confidences[i] ?? 0.5,
       initiatives: [],
     }));
-    onComplete({
-      id: 'po1',
-      objective: objective.trim(),
-      whyNow: whyNow.trim(),
-      krs: cleanKrs,
-    });
+    onComplete(
+      { id: 'po1', objective: objective.trim(), whyNow: whyNow.trim(), krs: cleanKrs },
+      askProjectType ? { name: projectName.trim() || 'Personal' } : undefined
+    );
   };
 
   const updateKr = (idx, field, value) =>
@@ -89,7 +96,7 @@ export default function OnboardingWizard({ onComplete, onSkip }) {
               <div style={{ width: 26, height: 26, background: C.primary, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Target size={14} color={C.white} />
               </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>OKR pertamamu — 3 langkah</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>OKR pertamamu — {askProjectType ? 4 : 3} langkah</span>
             </div>
             <button onClick={onSkip} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12, fontFamily: 'inherit', textDecoration: 'underline' }}>
               Lewati, isi sendiri
@@ -97,16 +104,62 @@ export default function OnboardingWizard({ onComplete, onSkip }) {
           </div>
           {/* Progress */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+            {askProjectType && (
+              <div style={{ flex: 1, height: 4, borderRadius: 2, background: C.primary, transition: 'background 0.3s' }} />
+            )}
             {[1, 2, 3].map(n => (
-              <div key={n} style={{ flex: 1, height: 4, borderRadius: 2, background: n <= step ? C.primary : C.border, transition: 'background 0.3s' }} />
+              <div key={n} style={{ flex: 1, height: 4, borderRadius: 2, background: typeConfirmed && n <= step ? C.primary : C.border, transition: 'background 0.3s' }} />
             ))}
           </div>
         </div>
 
         <div style={{ padding: '0 24px 24px' }}>
 
+          {/* Step 0 — Personal vs Team */}
+          {askProjectType && !typeConfirmed && (
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px', color: C.text }}>
+                Kamu kerja sendiri atau bareng tim?
+              </h2>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: '0 0 18px' }}>
+                Ini cuma nentuin nama workspace pertamamu — kamu tetap bisa mengundang siapa saja belakangan.
+              </p>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+                {[
+                  { type: 'personal', icon: User, label: 'Personal', desc: 'Cuma aku' },
+                  { type: 'team', icon: Users, label: 'Tim', desc: 'Aku + orang lain' },
+                ].map(({ type, icon: Icon, label, desc }) => {
+                  const active = projectType === type;
+                  return (
+                    <button key={type} onClick={() => chooseType(type)} style={{
+                      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                      padding: '18px 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+                      border: `2px solid ${active ? C.primary : C.border}`, background: active ? C.redSoft : C.white,
+                    }}>
+                      <Icon size={22} color={active ? C.primary : C.muted} />
+                      <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{label}</span>
+                      <span style={{ fontSize: 11.5, color: C.muted }}>{desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {projectType === 'team' && (
+                <div>
+                  <label style={labelStyle}>Nama tim/workspace</label>
+                  <input
+                    autoFocus
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="contoh: Tim Produk"
+                    style={inputStyle}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Step 1 — Objective */}
-          {step === 1 && (
+          {typeConfirmed && step === 1 && (
             <div>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px', color: C.text }}>
                 Apa tujuan besarmu kuartal ini?
@@ -233,12 +286,22 @@ export default function OnboardingWizard({ onComplete, onSkip }) {
 
           {/* Nav buttons */}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 22 }}>
-            {step > 1 ? (
-              <button onClick={() => { setErr(''); setStep(step - 1); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 13.5, fontWeight: 600, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
+            {typeConfirmed && (step > 1 || askProjectType) ? (
+              <button onClick={() => { setErr(''); if (step > 1) setStep(step - 1); else setTypeConfirmed(false); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 13.5, fontWeight: 600, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <ArrowLeft size={14} /> Kembali
               </button>
             ) : <span />}
-            {step < 3 ? (
+            {!typeConfirmed ? (
+              <button
+                onClick={() => setTypeConfirmed(true)}
+                disabled={!projectType || (projectType === 'team' && !projectName.trim())}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', fontSize: 13.5, fontWeight: 700, border: 'none', borderRadius: 7, fontFamily: 'inherit',
+                  background: (!projectType || (projectType === 'team' && !projectName.trim())) ? C.border : C.primary,
+                  color: (!projectType || (projectType === 'team' && !projectName.trim())) ? C.muted : C.white,
+                  cursor: (!projectType || (projectType === 'team' && !projectName.trim())) ? 'not-allowed' : 'pointer' }}>
+                Lanjut <ArrowRight size={14} />
+              </button>
+            ) : step < 3 ? (
               <button onClick={next} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', fontSize: 13.5, fontWeight: 700, border: 'none', background: C.primary, color: C.white, borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Lanjut <ArrowRight size={14} />
               </button>

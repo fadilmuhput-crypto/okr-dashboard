@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, GitBranch, UserCircle, UserPlus } from 'lucide-react';
+import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
@@ -592,40 +592,60 @@ function ObjectiveTabs({ objectives, activeId, onSelect, onAdd, onDelete, accent
   );
 }
 
-function ProjectTabs({ projects, activeId, onSelect, onAdd, onRename, onDelete }) {
+function ProjectSwitcher({ projects, activeId, onSelect, onAdd, onManage }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const activeIdx = Math.max(0, projects.findIndex(p => p.id === activeId));
+  const active = projects[activeIdx];
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClick);
+    return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClick); };
+  }, [open]);
+
+  if (!active) return null;
+
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      {projects.map((p, idx) => {
-        const active = p.id === activeId;
-        const color = PROJECT_COLORS[idx % PROJECT_COLORS.length];
-        return (
-          <div key={p.id} style={{ position: 'relative', display: 'inline-flex' }}>
-            <button onClick={() => onSelect(p.id)} title={p.name} style={{
-              maxWidth: 180, padding: projects.length > 1 ? '7px 44px 7px 18px' : '7px 18px', fontSize: 13, fontWeight: 600,
-              border: 'none', borderRadius: 6, cursor: 'pointer',
-              background: active ? color : 'transparent', color: active ? C.white : C.muted,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'all 0.15s'
-            }}>
-              {p.name}
-            </button>
-            {projects.length > 0 && (
-              <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
-                <button onClick={(e) => { e.stopPropagation(); onRename(p.id); }} title="Rename project" style={{ background: 'none', border: 'none', cursor: 'pointer', color: active ? C.white : C.muted, display: 'flex', padding: 0, opacity: 0.8 }}>
-                  <Pencil size={10} />
-                </button>
-                {projects.length > 1 && p.role === 'owner' && (
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(p.id); }} title="Delete project" style={{ background: 'none', border: 'none', cursor: 'pointer', color: active ? C.white : C.muted, display: 'flex', padding: 0, opacity: 0.8 }}>
-                    <X size={11} />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      <button onClick={onAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, border: `1px dashed ${C.border}`, borderRadius: 6, cursor: 'pointer', background: 'transparent', color: C.muted }}>
-        <Plus size={12} /> New Project
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 10px 7px 12px', fontSize: 13, fontWeight: 600,
+        border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', background: C.white, color: C.text, maxWidth: 220,
+      }}>
+        <span style={{ width: 8, height: 8, borderRadius: 4, background: PROJECT_COLORS[activeIdx % PROJECT_COLORS.length], flexShrink: 0 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{active.name}</span>
+        <ChevronDown size={14} color={C.muted} style={{ flexShrink: 0 }} />
       </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, minWidth: 240, background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 20, overflow: 'hidden' }}>
+          <div style={{ maxHeight: 280, overflowY: 'auto', padding: 6 }}>
+            {projects.map((p, idx) => {
+              const isActive = p.id === activeId;
+              return (
+                <button key={p.id} onClick={() => { onSelect(p.id); setOpen(false); }} style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', fontSize: 13, fontWeight: isActive ? 700 : 500,
+                  border: 'none', borderRadius: 6, cursor: 'pointer', background: isActive ? C.bg : 'transparent', color: C.text, textAlign: 'left',
+                }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 4, background: PROJECT_COLORS[idx % PROJECT_COLORS.length], flexShrink: 0 }} />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                  {isActive && <Check size={13} color={C.green} />}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ borderTop: `1px solid ${C.borderLight}`, padding: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <button onClick={() => { setOpen(false); onAdd(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: 'transparent', color: C.text, textAlign: 'left' }}>
+              <Plus size={13} /> New Project
+            </button>
+            <button onClick={() => { setOpen(false); onManage(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: 'transparent', color: C.muted, textAlign: 'left' }}>
+              <FolderKanban size={13} /> Manage projects
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -871,7 +891,7 @@ function TreeView({ krs, onUpdateKR, onDeleteKR }) {
 
 const smallBtnStyle = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 11.5, fontWeight: 600, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' };
 
-function ProfileProjectRow({ project, isActive, color, onSwitch, onRename, onDelete }) {
+function ProjectRow({ project, isActive, color, onSwitch, onRename, onDelete }) {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [inviteErr, setInviteErr] = useState('');
@@ -943,27 +963,36 @@ function ProfileProjectRow({ project, isActive, color, onSwitch, onRename, onDel
   );
 }
 
-function ProfileModal({ user, projects, activeProjectId, onSwitch, onRename, onDelete }) {
+function ProjectsPage({ user, projects, activeProjectId, onSwitch, onRename, onDelete, onAdd, onClose }) {
+  const isMobile = useIsMobile();
+  const padX = isMobile ? 14 : 24;
   return (
-    <div>
-      <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.borderLight}` }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Account</div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{user.name || user.email}</div>
-        <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{user.email}</div>
-        <span style={{ display: 'inline-flex', marginTop: 8, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 10, background: user.plan === 'free' ? C.grayPill : C.greenSoft, color: user.plan === 'free' ? C.muted : C.green }}>
-          {user.plan === 'free' ? 'Free plan' : 'Pro plan'}
-        </span>
+    <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 60, overflow: 'auto', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: isMobile ? '12px 14px' : '14px 24px', position: 'sticky', top: 0, zIndex: 1 }}>
+        <button onClick={onClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 0', fontSize: 13, fontWeight: 600, border: 'none', background: 'transparent', color: C.muted, cursor: 'pointer', marginBottom: 10 }}>
+          <ArrowLeft size={15} /> Back to dashboard
+        </button>
+        <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>Your Projects</div>
+        <div style={{ fontSize: 12.5, color: C.muted, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span>{user.name || user.email} · {user.email}</span>
+          <span style={{ display: 'inline-flex', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', borderRadius: 10, background: user.plan === 'free' ? C.grayPill : C.greenSoft, color: user.plan === 'free' ? C.muted : C.green }}>
+            {user.plan === 'free' ? 'Free plan' : 'Pro plan'}
+          </span>
+          <span>{projects.length}{user.plan === 'free' ? `/${FREE_PROJECT_LIMIT} owned` : ' projects'}</span>
+        </div>
       </div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-        Your Projects ({projects.length}{user.plan === 'free' ? `/${FREE_PROJECT_LIMIT} owned` : ''})
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {projects.map((p, i) => (
-          <ProfileProjectRow
-            key={p.id} project={p} isActive={p.id === activeProjectId} color={PROJECT_COLORS[i % PROJECT_COLORS.length]}
-            onSwitch={() => onSwitch(p.id)} onRename={() => onRename(p.id)} onDelete={() => onDelete(p.id)}
-          />
-        ))}
+      <div style={{ padding: `20px ${padX}px 40px ${padX}px`, maxWidth: 640, margin: '0 auto' }}>
+        <button onClick={onAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', fontSize: 13, fontWeight: 700, border: 'none', background: C.primary, color: C.white, borderRadius: 7, cursor: 'pointer', marginBottom: 16 }}>
+          <Plus size={14} /> New Project
+        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {projects.map((p, i) => (
+            <ProjectRow
+              key={p.id} project={p} isActive={p.id === activeProjectId} color={PROJECT_COLORS[i % PROJECT_COLORS.length]}
+              onSwitch={() => onSwitch(p.id)} onRename={() => onRename(p.id)} onDelete={() => onDelete(p.id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -988,7 +1017,7 @@ export default function OKRDashboard({ user, onLogout }) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [renameProjectTarget, setRenameProjectTarget] = useState(null);
   const [deleteProjectTarget, setDeleteProjectTarget] = useState(null);
-  const [showProfile, setShowProfile] = useState(false);
+  const [showProjectsPage, setShowProjectsPage] = useState(false);
   const saveTimer = useRef(null);
 
   // Load order: accept a pending invite (if the URL carries one) → fetch
@@ -1132,10 +1161,10 @@ export default function OKRDashboard({ user, onLogout }) {
       : { ...p, objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
   );
 
-  const completeWizard = async (obj) => {
+  const completeWizard = async (obj, projectMeta) => {
     if (projects.length === 0) {
       try {
-        const { project } = await api.createProject('Personal');
+        const { project } = await api.createProject(projectMeta?.name || 'Personal');
         const filled = { ...project, objectives: [obj], activeObjectiveId: obj.id };
         setProjects([filled]);
         setActiveProjectId(project.id);
@@ -1320,7 +1349,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
             </button>
           )}
           <button onClick={openCheckIn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><FileText size={13} /> Export Report</button>
-          <button onClick={() => setShowProfile(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Profile & Projects"><UserCircle size={15} /></button>
+          <button onClick={() => setShowProjectsPage(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Projects"><UserCircle size={15} /></button>
           {user && (
             <button onClick={onLogout} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title={`Sign out (${user.email})`}>Sign out</button>
           )}
@@ -1336,14 +1365,13 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       ) : activeProject ? (
         <>
           <div style={{ padding: `20px ${padX}px 0 ${padX}px`, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'inline-flex', background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, alignSelf: 'flex-start' }}>
-              <ProjectTabs
+            <div style={{ alignSelf: 'flex-start' }}>
+              <ProjectSwitcher
                 projects={projects}
                 activeId={activeProjectId}
                 onSelect={setActiveProjectId}
                 onAdd={() => (user.plan === 'free' && projects.filter(p => p.role === 'owner').length >= FREE_PROJECT_LIMIT) ? setShowUpgradeModal(true) : setShowAddProject(true)}
-                onRename={(id) => setRenameProjectTarget(id)}
-                onDelete={(id) => setDeleteProjectTarget(id)}
+                onManage={() => setShowProjectsPage(true)}
               />
             </div>
             <ObjectiveTabs
@@ -1480,16 +1508,18 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         </div>
       </Modal>
 
-      <Modal open={showProfile} onClose={() => setShowProfile(false)} title="Profile & Projects" maxWidth={480}>
-        <ProfileModal
+      {showProjectsPage && (
+        <ProjectsPage
           user={user}
           projects={projects}
           activeProjectId={activeProjectId}
-          onSwitch={(id) => { setActiveProjectId(id); setShowProfile(false); }}
-          onRename={(id) => { setShowProfile(false); setRenameProjectTarget(id); }}
-          onDelete={(id) => { setShowProfile(false); setDeleteProjectTarget(id); }}
+          onClose={() => setShowProjectsPage(false)}
+          onSwitch={(id) => { setActiveProjectId(id); setShowProjectsPage(false); }}
+          onRename={(id) => setRenameProjectTarget(id)}
+          onDelete={(id) => setDeleteProjectTarget(id)}
+          onAdd={() => (user.plan === 'free' && projects.filter(p => p.role === 'owner').length >= FREE_PROJECT_LIMIT) ? setShowUpgradeModal(true) : setShowAddProject(true)}
         />
-      </Modal>
+      )}
 
       <Modal open={showCheckIn} onClose={() => setShowCheckIn(false)} title={`Weekly check-in${activeProject ? ` — Week ${activeProject.weekNumber}` : ''}`} maxWidth={760}>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>Edit before copying. Paste into Sheets / Notion / Slack.</div>
@@ -1505,7 +1535,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         </div>
       </Modal>
 
-      {showWizard && <OnboardingWizard onComplete={completeWizard} onSkip={skipWizard} />}
+      {showWizard && <OnboardingWizard onComplete={completeWizard} onSkip={skipWizard} askProjectType={projects.length === 0} />}
 
       {showWeeklyCheckIn && objective && activeProject && (
         <WeeklyCheckIn

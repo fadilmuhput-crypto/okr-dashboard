@@ -78,7 +78,7 @@ export default function OnboardingWizard({ onComplete, onSkip, askProjectType = 
     }));
     onComplete(
       { id: 'po1', objective: objective.trim(), whyNow: whyNow.trim(), krs: cleanKrs },
-      askProjectType ? { name: projectName.trim() || 'Personal' } : undefined
+      askProjectType ? { name: projectName.trim() || 'Personal', type: projectType || 'personal' } : undefined
     );
   };
 
@@ -122,7 +122,7 @@ export default function OnboardingWizard({ onComplete, onSkip, askProjectType = 
                 Kamu kerja sendiri atau bareng tim?
               </h2>
               <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: '0 0 18px' }}>
-                Ini cuma nentuin nama workspace pertamamu — kamu tetap bisa mengundang siapa saja belakangan.
+                <strong style={{ color: C.text }}>Personal</strong> cuma bisa diakses kamu sendiri, gak bisa diundang orang lain. <strong style={{ color: C.text }}>Tim</strong> bisa kamu undang siapa saja untuk kolaborasi. Personal bisa di-upgrade ke Tim kapan saja nanti kalau berubah pikiran.
               </p>
               <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
                 {[

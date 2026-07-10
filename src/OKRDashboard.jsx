@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban } from 'lucide-react';
+import { Target, AlertTriangle, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
@@ -452,13 +452,19 @@ function KRCard({ kr, onUpdate, onDelete, onAddIni, onUpdateIni, onDeleteIni, ac
   );
 }
 
-function ProjectNameForm({ initialName = '', confirmLabel, onCancel, onConfirm }) {
+const PROJECT_TYPE_INFO = {
+  personal: 'Hanya kamu yang bisa akses. Cocok untuk goal pribadi yang privat.',
+  team: 'Bisa undang orang lain untuk sama-sama edit Objective, KR, dan check-in.',
+};
+
+function ProjectNameForm({ initialName = '', confirmLabel, onCancel, onConfirm, showType = false }) {
   const [name, setName] = useState(initialName);
+  const [type, setType] = useState('personal');
   const [err, setErr] = useState('');
 
   const submit = () => {
     if (!name.trim()) { setErr('Give the project a name.'); return; }
-    onConfirm(name.trim());
+    onConfirm(name.trim(), type);
   };
 
   return (
@@ -470,6 +476,26 @@ function ProjectNameForm({ initialName = '', confirmLabel, onCancel, onConfirm }
         placeholder="e.g. Side Business, Career, Q3 Launch"
         style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: 'inherit', outline: 'none', background: C.white, color: C.text, boxSizing: 'border-box' }}
       />
+      {showType && (
+        <div style={{ marginTop: 14 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Type</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[{ value: 'personal', icon: User, label: 'Personal' }, { value: 'team', icon: Users, label: 'Tim' }].map(({ value, icon: Icon, label }) => {
+              const active = type === value;
+              return (
+                <button key={value} onClick={() => setType(value)} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 10px',
+                  borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
+                  border: `1.5px solid ${active ? C.primary : C.border}`, background: active ? C.redSoft : C.white, color: active ? C.primary : C.text,
+                }}>
+                  <Icon size={13} /> {label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>{PROJECT_TYPE_INFO[type]}</div>
+        </div>
+      )}
       {err && <div style={{ color: C.red, fontSize: 12, marginTop: 8 }}>{err}</div>}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
         <button onClick={onCancel} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Cancel</button>
@@ -891,7 +917,7 @@ function TreeView({ krs, onUpdateKR, onDeleteKR }) {
 
 const smallBtnStyle = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 11.5, fontWeight: 600, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' };
 
-function ProjectRow({ project, isActive, color, onSwitch, onRename, onDelete }) {
+function ProjectRow({ project, isActive, color, onSwitch, onRename, onDelete, onUpgrade }) {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [inviteErr, setInviteErr] = useState('');
@@ -922,13 +948,15 @@ function ProjectRow({ project, isActive, color, onSwitch, onRename, onDelete }) 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ width: 8, height: 8, borderRadius: 4, background: color, flexShrink: 0 }} />
         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+        <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', color: project.type === 'personal' ? C.muted : C.secondary, background: project.type === 'personal' ? C.grayPill : C.blueSoft, padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>{project.type === 'personal' ? 'Personal' : 'Tim'}</span>
         <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', color: C.muted, background: C.grayPill, padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>{project.role}</span>
         {isActive && <span style={{ fontSize: 9.5, fontWeight: 700, color: C.green, flexShrink: 0 }}>ACTIVE</span>}
       </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
         {!isActive && <button onClick={onSwitch} style={smallBtnStyle}>Switch to</button>}
         <button onClick={onRename} style={smallBtnStyle}><Pencil size={10} /> Rename</button>
-        {project.role === 'owner' && <button onClick={toggleInvite} style={smallBtnStyle}><UserPlus size={11} /> Invite</button>}
+        {project.role === 'owner' && project.type === 'team' && <button onClick={toggleInvite} style={smallBtnStyle}><UserPlus size={11} /> Invite</button>}
+        {project.role === 'owner' && project.type === 'personal' && <button onClick={onUpgrade} style={smallBtnStyle}><Users size={11} /> Upgrade to Tim</button>}
         {project.role === 'owner' && <button onClick={onDelete} style={{ ...smallBtnStyle, color: C.red }}><Trash2 size={10} /> Delete</button>}
       </div>
       {showInvite && (
@@ -963,7 +991,7 @@ function ProjectRow({ project, isActive, color, onSwitch, onRename, onDelete }) 
   );
 }
 
-function ProjectsPage({ user, projects, activeProjectId, onSwitch, onRename, onDelete, onAdd, onClose }) {
+function ProjectsPage({ user, projects, activeProjectId, onSwitch, onRename, onDelete, onAdd, onUpgrade, onClose }) {
   const isMobile = useIsMobile();
   const padX = isMobile ? 14 : 24;
   return (
@@ -989,7 +1017,7 @@ function ProjectsPage({ user, projects, activeProjectId, onSwitch, onRename, onD
           {projects.map((p, i) => (
             <ProjectRow
               key={p.id} project={p} isActive={p.id === activeProjectId} color={PROJECT_COLORS[i % PROJECT_COLORS.length]}
-              onSwitch={() => onSwitch(p.id)} onRename={() => onRename(p.id)} onDelete={() => onDelete(p.id)}
+              onSwitch={() => onSwitch(p.id)} onRename={() => onRename(p.id)} onDelete={() => onDelete(p.id)} onUpgrade={() => onUpgrade(p.id)}
             />
           ))}
         </div>
@@ -1156,7 +1184,7 @@ export default function OKRDashboard({ user, onLogout }) {
   const deleteIniFromKR = (krId, iniId) => mutateKRInitiatives(krId, (inis) => inis.filter(i => i.id !== iniId));
 
   const loadSample = () => updateProjectLocal(activeProject.id, (p) =>
-    projectIndex === 0
+    p.type === 'personal'
       ? { ...p, objectives: SAMPLE_PERSONAL_OBJECTIVES, activeObjectiveId: SAMPLE_PERSONAL_OBJECTIVES[0].id }
       : { ...p, objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
   );
@@ -1164,7 +1192,7 @@ export default function OKRDashboard({ user, onLogout }) {
   const completeWizard = async (obj, projectMeta) => {
     if (projects.length === 0) {
       try {
-        const { project } = await api.createProject(projectMeta?.name || 'Personal');
+        const { project } = await api.createProject(projectMeta?.name || 'Personal', projectMeta?.type || 'personal');
         const filled = { ...project, objectives: [obj], activeObjectiveId: obj.id };
         setProjects([filled]);
         setActiveProjectId(project.id);
@@ -1188,14 +1216,14 @@ export default function OKRDashboard({ user, onLogout }) {
   // count gate enforced server-side (worker/projects.js); the client check
   // here is just a fast-path so most attempts never need a round trip.
   // Billing itself (P3) isn't built — the upgrade modal is messaging only.
-  const addProject = async (name) => {
+  const addProject = async (name, type) => {
     if (user.plan === 'free' && projects.filter(p => p.role === 'owner').length >= FREE_PROJECT_LIMIT) {
       setShowAddProject(false);
       setShowUpgradeModal(true);
       return;
     }
     try {
-      const { project } = await api.createProject(name);
+      const { project } = await api.createProject(name, type);
       setProjects(prev => [...prev, project]);
       setActiveProjectId(project.id);
       setShowAddProject(false);
@@ -1212,6 +1240,14 @@ export default function OKRDashboard({ user, onLogout }) {
     if (!trimmed) return;
     setProjects(prev => prev.map(p => p.id === id ? { ...p, name: trimmed } : p));
     try { await api.updateProject(id, { name: trimmed }); } catch (e) { setStorageWarning('Could not rename project on the server.'); }
+  };
+
+  const upgradeProjectType = async (id) => {
+    setProjects(prev => prev.map(p => p.id === id ? { ...p, type: 'team' } : p));
+    try { await api.updateProject(id, { type: 'team' }); } catch (e) {
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, type: 'personal' } : p));
+      setStorageWarning('Could not upgrade project on the server.');
+    }
   };
 
   const confirmDeleteProject = async () => {
@@ -1478,7 +1514,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       </Modal>
 
       <Modal open={showAddProject} onClose={() => setShowAddProject(false)} title="New Project" maxWidth={420}>
-        <ProjectNameForm confirmLabel="Create Project" onCancel={() => setShowAddProject(false)} onConfirm={addProject} />
+        <ProjectNameForm confirmLabel="Create Project" onCancel={() => setShowAddProject(false)} onConfirm={addProject} showType />
       </Modal>
 
       <Modal open={!!renameProjectTarget} onClose={() => setRenameProjectTarget(null)} title="Rename Project" maxWidth={420}>
@@ -1517,6 +1553,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
           onSwitch={(id) => { setActiveProjectId(id); setShowProjectsPage(false); }}
           onRename={(id) => setRenameProjectTarget(id)}
           onDelete={(id) => setDeleteProjectTarget(id)}
+          onUpgrade={upgradeProjectType}
           onAdd={() => (user.plan === 'free' && projects.filter(p => p.role === 'owner').length >= FREE_PROJECT_LIMIT) ? setShowUpgradeModal(true) : setShowAddProject(true)}
         />
       )}

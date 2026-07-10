@@ -30,6 +30,7 @@ function shapeProject(row, role) {
   return {
     id: row.id,
     name: row.name,
+    type: row.type,
     colorIndex: row.color_index,
     objectives: JSON.parse(row.objectives_json),
     activeObjectiveId: row.active_objective_id,
@@ -52,6 +53,7 @@ export async function handleListProjects(request, env, user) {
 export async function handleCreateProject(request, env, user) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body.name !== 'string' || !body.name.trim()) return err('Project needs a name');
+  const type = body.type === 'personal' ? 'personal' : 'team';
 
   const ownedCount = await env.DB.prepare('SELECT COUNT(*) as c FROM projects WHERE owner_id = ?').bind(user.id).first();
   if (user.plan === 'free' && ownedCount.c >= FREE_PROJECT_LIMIT) {
@@ -65,15 +67,15 @@ export async function handleCreateProject(request, env, user) {
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO projects (id, name, owner_id, color_index, objectives_json, active_objective_id, week_number, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`
-    ).bind(id, body.name.trim(), user.id, ownedCount.c, JSON.stringify(objectives), objId, now, now),
+      `INSERT INTO projects (id, name, type, owner_id, color_index, objectives_json, active_objective_id, week_number, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+    ).bind(id, body.name.trim(), type, user.id, ownedCount.c, JSON.stringify(objectives), objId, now, now),
     env.DB.prepare('INSERT INTO project_members (project_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)')
       .bind(id, user.id, 'owner', now),
   ]);
 
   return json({ project: shapeProject({
-    id, name: body.name.trim(), color_index: ownedCount.c, objectives_json: JSON.stringify(objectives),
+    id, name: body.name.trim(), type, color_index: ownedCount.c, objectives_json: JSON.stringify(objectives),
     active_objective_id: objId, week_number: 1, updated_at: now,
   }, 'owner') });
 }
@@ -91,6 +93,12 @@ export async function handleUpdateProject(request, env, user, projectId) {
   if (Array.isArray(body.objectives)) { fields.push('objectives_json = ?'); values.push(JSON.stringify(body.objectives)); }
   if (typeof body.activeObjectiveId === 'string') { fields.push('active_objective_id = ?'); values.push(body.activeObjectiveId); }
   if (Number.isInteger(body.weekNumber)) { fields.push('week_number = ?'); values.push(body.weekNumber); }
+  if (typeof body.type === 'string') {
+    // Personal -> Team is a one-way, owner-only upgrade — not a generic field.
+    if (role !== 'owner' || body.type !== 'team') return err('Cannot change project type this way', 403);
+    const current = await env.DB.prepare('SELECT type FROM projects WHERE id = ?').bind(projectId).first();
+    if (current.type === 'personal') { fields.push('type = ?'); values.push('team'); }
+  }
   if (fields.length === 0) return err('Nothing to update');
 
   fields.push('updated_at = ?');
@@ -111,6 +119,8 @@ export async function handleDeleteProject(request, env, user, projectId) {
 export async function handleCreateInvite(request, env, user, projectId) {
   const role = await isMember(env.DB, projectId, user.id);
   if (role !== 'owner') return err('Only the owner can invite people to this project', 403);
+  const project = await env.DB.prepare('SELECT type FROM projects WHERE id = ?').bind(projectId).first();
+  if (project.type === 'personal') return err('This project is Personal — upgrade it to Team first to invite people', 403);
   const code = inviteCode();
   await env.DB.prepare('INSERT INTO project_invites (code, project_id, created_by, created_at) VALUES (?, ?, ?, ?)')
     .bind(code, projectId, user.id, Date.now()).run();

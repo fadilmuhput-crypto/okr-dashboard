@@ -21,7 +21,7 @@ export const api = {
   me: () => request('/auth/me'),
 
   getProjects: () => request('/projects'),
-  createProject: (name) => request('/projects', { method: 'POST', body: JSON.stringify({ name }) }),
+  createProject: (name, type) => request('/projects', { method: 'POST', body: JSON.stringify({ name, type }) }),
   updateProject: (id, patch) => request(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   deleteProject: (id) => request(`/projects/${id}`, { method: 'DELETE' }),
   createInvite: (projectId) => request(`/projects/${projectId}/invite`, { method: 'POST' }),

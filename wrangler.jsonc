@@ -2,7 +2,7 @@
   // Cloudflare Workers config — OwntheWay (OTW)
   // Worker handles /api/* (auth, state, checkins); everything else falls
   // through to the static SPA build in ./dist.
-  "name": "owntheway",
+  "name": "okr-dashboard",
   "compatibility_date": "2026-07-01",
   "main": "worker/index.js",
   "assets": {

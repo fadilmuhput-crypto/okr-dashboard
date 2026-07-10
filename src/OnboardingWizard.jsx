@@ -33,7 +33,7 @@ const labelStyle = {
   textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
 };
 
-export default function OnboardingWizard({ onComplete, onSkip, askProjectType = false }) {
+export default function OnboardingWizard({ onComplete, onSkip, askProjectType = false, secondaryLink }) {
   const [step, setStep] = useState(1);
   const [typeConfirmed, setTypeConfirmed] = useState(!askProjectType);
   const [projectType, setProjectType] = useState(null);
@@ -98,9 +98,16 @@ export default function OnboardingWizard({ onComplete, onSkip, askProjectType = 
               </div>
               <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>OKR pertamamu — {askProjectType ? 4 : 3} langkah</span>
             </div>
-            <button onClick={onSkip} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12, fontFamily: 'inherit', textDecoration: 'underline' }}>
-              Lewati, isi sendiri
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {secondaryLink && (
+                <button onClick={secondaryLink.onClick} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12, fontFamily: 'inherit', textDecoration: 'underline' }}>
+                  {secondaryLink.label}
+                </button>
+              )}
+              <button onClick={onSkip} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12, fontFamily: 'inherit', textDecoration: 'underline' }}>
+                Lewati, isi sendiri
+              </button>
+            </div>
           </div>
           {/* Progress */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>

@@ -1026,7 +1026,7 @@ function ProjectsPage({ user, projects, activeProjectId, onSwitch, onRename, onD
   );
 }
 
-export default function OKRDashboard({ user, onLogout }) {
+export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -1038,6 +1038,7 @@ export default function OKRDashboard({ user, onLogout }) {
   const [checkInDraft, setCheckInDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const [storageWarning, setStorageWarning] = useState('');
+  const [guestDiscardNote, setGuestDiscardNote] = useState('');
   const [showWizard, setShowWizard] = useState(false);
   const [checkins, setCheckins] = useState([]);
   const [showWeeklyCheckIn, setShowWeeklyCheckIn] = useState(false);
@@ -1053,7 +1054,12 @@ export default function OKRDashboard({ user, onLogout }) {
   // first-timers. Projects are first-class server rows now (see
   // migrations/0002_projects.sql), not a single JSON blob per user, so
   // multiple people can share one project.
+  // didInit guards against StrictMode's dev-only double-invoke of this
+  // effect, which would otherwise create a duplicate first project.
+  const didInit = useRef(false);
   useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
     (async () => {
       let joinNote = '';
       const params = new URLSearchParams(window.location.search);
@@ -1072,6 +1078,13 @@ export default function OKRDashboard({ user, onLogout }) {
           try { lastActive = localStorage.getItem('okr-last-project'); } catch (e) { /* ignore */ }
           const initial = serverProjects.find(p => p.id === lastActive) || serverProjects[serverProjects.length - 1];
           setActiveProjectId(initial.id);
+          if (pendingGuestDraft) {
+            try { localStorage.removeItem('okr-guest-draft'); } catch (e) { /* ignore */ }
+            setGuestDiscardNote('Progress demo tidak disimpan — akun ini sudah punya project.');
+          }
+        } else if (pendingGuestDraft) {
+          try { localStorage.removeItem('okr-guest-draft'); } catch (e) { /* ignore */ }
+          completeWizard(pendingGuestDraft.obj, pendingGuestDraft.projectMeta);
         } else {
           let wizardDone = false;
           try { wizardDone = !!localStorage.getItem('okr-wizard-done'); } catch (e) { /* ignore */ }
@@ -1393,6 +1406,10 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       </div>
 
       {storageWarning && <div style={{ padding: '8px 24px', background: C.yellowSoft, color: '#8B6914', fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
+      {guestDiscardNote && <div style={{ padding: '8px 24px', background: C.blueSoft, color: C.secondary, fontSize: 12, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <span>ℹ {guestDiscardNote}</span>
+        <button onClick={() => setGuestDiscardNote('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.secondary, fontSize: 12, fontWeight: 700 }}>✕</button>
+      </div>}
 
       {loaded && projects.length === 0 ? (
         <div style={{ padding: `20px ${padX}px 40px ${padX}px` }}>

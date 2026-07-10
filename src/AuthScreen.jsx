@@ -23,8 +23,8 @@ const labelStyle = {
   textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
 };
 
-export default function AuthScreen({ onAuthed }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+export default function AuthScreen({ onAuthed, initialMode = 'login', guestSource = false }) {
+  const [mode, setMode] = useState(initialMode); // 'login' | 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -39,7 +39,7 @@ export default function AuthScreen({ onAuthed }) {
       const { user } = mode === 'login'
         ? await api.login(email.trim(), password)
         : await api.register(email.trim(), password, name.trim());
-      trackEvent(mode === 'login' ? 'login' : 'sign_up', { method: 'email' });
+      trackEvent(mode === 'login' ? 'login' : 'sign_up', { method: 'email', source: guestSource ? 'guest_demo' : 'direct' });
       onAuthed(user);
     } catch (e) {
       setError(e.message);

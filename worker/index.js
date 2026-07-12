@@ -19,7 +19,75 @@ function err(message, status = 400) {
   return json({ error: message }, { status });
 }
 
+// ── Security headers middleware ──
+function withSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-XSS-Protection', '1; mode=block');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // CSP: allow inline scripts (needed for Vite dev & GA4), connect to self + Google Analytics
+  headers.set('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "connect-src 'self' https://www.google-analytics.com https://analytics.google.com",
+    "font-src 'self' data:",
+    "frame-ancestors 'none'",
+  ].join('; '));
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+// ── Rate limiter — in-memory sliding window per IP ──
+// Works within a single Worker isolate. Not distributed across
+// Workers' edge locations, but sufficient to slow down brute-force
+// from a single origin. For stronger protection, add Cloudflare
+// Rate Limiting rules at the DNS level.
+const rateLimitStore = new Map();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX_ATTEMPTS = 10;
+const RATE_LIMIT_CLEANUP_INTERVAL = 60 * 1000; // cleanup every 60s
+let lastCleanup = Date.now();
+
+function getClientIp(request) {
+  return request.headers.get('CF-Connecting-IP')
+    || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
+    || 'unknown';
+}
+
+function isRateLimited(ip, action) {
+  const key = `${ip}:${action}`;
+  const now = Date.now();
+
+  // Periodic cleanup of expired entries
+  if (now - lastCleanup > RATE_LIMIT_CLEANUP_INTERVAL) {
+    for (const [k, v] of rateLimitStore) {
+      if (now - v.windowStart > RATE_LIMIT_WINDOW_MS) rateLimitStore.delete(k);
+    }
+    lastCleanup = now;
+  }
+
+  const entry = rateLimitStore.get(key);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitStore.set(key, { windowStart: now, attempts: 1 });
+    return false;
+  }
+  entry.attempts++;
+  return entry.attempts > RATE_LIMIT_MAX_ATTEMPTS;
+}
+
 async function handleRegister(request, env) {
+  const ip = getClientIp(request);
+  if (isRateLimited(ip, 'register')) {
+    return err('Too many registration attempts. Try again later.', 429);
+  }
+
   const body = await request.json().catch(() => null);
   if (!body) return err('Invalid JSON body');
   const { email, password, name } = body;
@@ -47,6 +115,11 @@ async function handleRegister(request, env) {
 }
 
 async function handleLogin(request, env) {
+  const ip = getClientIp(request);
+  if (isRateLimited(ip, 'login')) {
+    return err('Too many login attempts. Try again later.', 429);
+  }
+
   const body = await request.json().catch(() => null);
   if (!body) return err('Invalid JSON body');
   const { email, password } = body;
@@ -97,17 +170,25 @@ async function handleGetCheckins(request, env) {
      FROM checkins WHERE scope IN (SELECT project_id FROM project_members WHERE user_id = ?)
      ORDER BY week_number ASC, created_at ASC`
   ).bind(user.id).all();
-  const checkins = results.map((r) => ({
-    id: r.id,
-    weekNumber: r.week_number,
-    scope: r.scope,
-    objectiveId: r.objective_id,
-    confidenceSnapshot: JSON.parse(r.confidence_snapshot),
-    accomplished: r.accomplished,
-    challenges: r.challenges,
-    nextPriorities: r.next_priorities,
-    createdAt: r.created_at,
-  }));
+  const checkins = results.map((r) => {
+    let confidenceSnapshot;
+    try {
+      confidenceSnapshot = JSON.parse(r.confidence_snapshot);
+    } catch {
+      confidenceSnapshot = {};
+    }
+    return {
+      id: r.id,
+      weekNumber: r.week_number,
+      scope: r.scope,
+      objectiveId: r.objective_id,
+      confidenceSnapshot,
+      accomplished: r.accomplished,
+      challenges: r.challenges,
+      nextPriorities: r.next_priorities,
+      createdAt: r.created_at,
+    };
+  });
   return json({ checkins });
 }
 
@@ -125,6 +206,14 @@ async function handlePostCheckin(request, env) {
     .bind(scope, user.id).first();
   if (!member) return err('You are not a member of this project', 403);
 
+  // Validate text field lengths to prevent DB bloat
+  const MAX_TEXT_LENGTH = 5000;
+  for (const [name, val] of [['accomplished', accomplished], ['challenges', challenges], ['nextPriorities', nextPriorities]]) {
+    if (typeof val === 'string' && val.length > MAX_TEXT_LENGTH) {
+      return err(`${name} is too long (max ${MAX_TEXT_LENGTH} characters)`);
+    }
+  }
+
   const id = newId();
   await env.DB.prepare(
     `INSERT INTO checkins (id, user_id, week_number, scope, objective_id, confidence_snapshot, accomplished, challenges, next_priorities, created_at)
@@ -132,7 +221,9 @@ async function handlePostCheckin(request, env) {
   ).bind(
     id, user.id, weekNumber, scope, objectiveId,
     JSON.stringify(confidenceSnapshot),
-    accomplished || null, challenges || null, nextPriorities || null,
+    (accomplished || '').slice(0, MAX_TEXT_LENGTH) || null,
+    (challenges || '').slice(0, MAX_TEXT_LENGTH) || null,
+    (nextPriorities || '').slice(0, MAX_TEXT_LENGTH) || null,
     Date.now()
   ).run();
 
@@ -173,7 +264,7 @@ export default {
       try {
         const key = `${request.method} ${url.pathname}`;
         const handler = routes[key];
-        if (handler) return await handler(request, env);
+        if (handler) return withSecurityHeaders(await handler(request, env));
 
         for (const [method, pattern, paramHandler] of paramRoutes) {
           if (request.method !== method) continue;
@@ -181,15 +272,15 @@ export default {
           if (!match) continue;
           const user = await getUserFromRequest(request, env.DB);
           if (!user) return err('Not signed in', 401);
-          return await paramHandler(request, env, user, ...match.slice(1));
+          return withSecurityHeaders(await paramHandler(request, env, user, ...match.slice(1)));
         }
 
-        return err('Not found', 404);
+        return withSecurityHeaders(err('Not found', 404));
       } catch (e) {
-        return err(`Internal error: ${e.message}`, 500);
+        return withSecurityHeaders(err(`Internal error: ${e.message}`, 500));
       }
     }
 
-    return env.ASSETS.fetch(request);
+    return withSecurityHeaders(await env.ASSETS.fetch(request));
   },
 };

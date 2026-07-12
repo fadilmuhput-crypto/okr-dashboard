@@ -2,22 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { X, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { api } from './api.js';
 import { trackEvent } from './analytics.js';
-
-const C = {
-  primary: '#E72D33',
-  green: '#1E8449',
-  yellow: '#D68910',
-  red: '#C0392B',
-  text: '#1F1F1F',
-  muted: '#7A7A7A',
-  border: '#E0E0E0',
-  bg: '#FAFAFA',
-  white: '#FFFFFF',
-  greenSoft: '#EAF5EE',
-};
-
-const confColor = (c) => c >= 0.7 ? C.green : c >= 0.5 ? C.yellow : C.red;
-const confLabel = (c) => c >= 0.7 ? 'On Track' : c >= 0.5 ? 'Watch' : 'At Risk';
+import { C } from './theme.js';
+import { confColor, confLabel } from './utils.js';
 
 const labelStyle = {
   display: 'block', fontSize: 11, fontWeight: 700, color: C.muted,

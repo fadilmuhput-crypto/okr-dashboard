@@ -3,7 +3,7 @@
 // in the Workers runtime, no adapter/version risk, and the schema is small
 // enough that owning it directly is simpler than wiring an adapter.
 
-const PBKDF2_ITERATIONS = 100000;
+const PBKDF2_ITERATIONS = 600000;
 const SESSION_DAYS = 30;
 
 function bufToHex(buf) {
@@ -29,7 +29,12 @@ export async function verifyPassword(password, stored) {
   const salt = hexToBuf(saltHex);
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, key, 256);
-  return bufToHex(bits) === hashHex;
+  const computed = hexToBuf(bufToHex(bits));
+  const expected = hexToBuf(hashHex);
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed[i] ^ expected[i];
+  return diff === 0;
 }
 
 export function newId() {

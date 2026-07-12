@@ -3,21 +3,9 @@
 // Layering an LLM on top later (P3) means writing better sentences around
 // these same signals, not re-deriving them.
 
-export const QUARTER_WEEKS = 13;
+import { calcKRProgress } from './utils.js';
 
-const calcKRProgress = (kr) => {
-  if (kr.type === 'deadline') {
-    const c = Number(kr.current);
-    return Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 0;
-  }
-  const baseline = Number(kr.baseline), target = Number(kr.target), current = Number(kr.current);
-  if (!Number.isFinite(baseline) || !Number.isFinite(target) || !Number.isFinite(current)) return 0;
-  if (baseline === target) return current >= target ? 100 : 0;
-  const raw = target > baseline
-    ? ((current - baseline) / (target - baseline)) * 100
-    : ((baseline - current) / (baseline - target)) * 100;
-  return raw;
-};
+export const QUARTER_WEEKS = 13;
 
 /**
  * @param {object} objective - { id, objective, krs }

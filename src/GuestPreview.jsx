@@ -1,22 +1,8 @@
 import React from 'react';
 import { Target, Sparkles, LogIn } from 'lucide-react';
 import { Logo } from './Landing.jsx';
-
-const C = {
-  primary: '#E72D33',
-  green: '#1E8449',
-  yellow: '#D68910',
-  red: '#C0392B',
-  text: '#1F1F1F',
-  muted: '#7A7A7A',
-  border: '#E0E0E0',
-  bg: '#FAFAFA',
-  white: '#FFFFFF',
-  redSoft: '#FBEAEA',
-};
-
-const confColor = (c) => c >= 0.7 ? C.green : c >= 0.5 ? C.yellow : C.red;
-const confLabel = (c) => c >= 0.7 ? 'On Track' : c >= 0.5 ? 'Watch' : 'At Risk';
+import { C } from './theme.js';
+import { confColor, confLabel } from './utils.js';
 
 export default function GuestPreview({ draft, onDraftChange, onSave, onLogin }) {
   const { obj } = draft;

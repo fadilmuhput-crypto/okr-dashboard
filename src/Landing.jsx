@@ -1,21 +1,6 @@
 import React from 'react';
 import { LayoutDashboard, FileText, ArrowRight, Check, Gauge } from 'lucide-react';
-
-const C = {
-  primary: '#E72D33',
-  secondary: '#2E4DA0',
-  green: '#1E8449',
-  yellow: '#D68910',
-  red: '#C0392B',
-  text: '#1F1F1F',
-  muted: '#7A7A7A',
-  border: '#E0E0E0',
-  bg: '#FAFAFA',
-  white: '#FFFFFF',
-  greenSoft: '#EAF5EE',
-  yellowSoft: '#FDF6E3',
-  redSoft: '#FBEAEA',
-};
+import { C } from './theme.js';
 
 const goToApp = () => { window.location.href = '/app'; };
 

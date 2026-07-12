@@ -2,16 +2,7 @@ import React, { useState } from 'react';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
 import { trackEvent } from './analytics.js';
-
-const C = {
-  primary: '#E72D33',
-  text: '#1F1F1F',
-  muted: '#7A7A7A',
-  border: '#E0E0E0',
-  bg: '#FAFAFA',
-  white: '#FFFFFF',
-  redSoft: '#FBEAEA',
-};
+import { C } from './theme.js';
 
 const inputStyle = {
   width: '100%', padding: '11px 13px', fontSize: 14, border: `1px solid ${C.border}`,

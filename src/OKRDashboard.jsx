@@ -575,6 +575,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                         accentColor={accentColor}
                         onChange={(updatedKR) => updateKR(kr.id, updatedKR)}
                         onRemove={() => setDeleteKRTarget(kr.id)}
+                        checkins={checkins}
                       />
                     ))}
                     <button onClick={() => !isMaxKR && setShowAddKR(true)} disabled={isMaxKR} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: isMaxKR ? C.borderLight : C.white, color: isMaxKR ? C.muted : accentColor, border: `1px dashed ${isMaxKR ? C.border : accentColor}`, borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: isMaxKR ? 'not-allowed' : 'pointer', alignSelf: 'flex-start' }}>

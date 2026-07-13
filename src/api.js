@@ -30,4 +30,7 @@ export const api = {
 
   getCheckins: () => request('/checkins'),
   postCheckin: (checkin) => request('/checkins', { method: 'POST', body: JSON.stringify(checkin) }),
+
+  generateOKR: (goal) => request('/ai/generate-okr', { method: 'POST', body: JSON.stringify({ goal }) }),
+  updateReminderPref: (enabled) => request('/user/reminder', { method: 'PATCH', body: JSON.stringify({ enabled }) }),
 };

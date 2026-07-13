@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Target, ArrowRight, ArrowLeft, Check, Plus, X, Gauge, User, Users } from 'lucide-react';
+import { Target, ArrowRight, ArrowLeft, Check, Plus, X, Gauge, User, Users, Sparkles } from 'lucide-react';
 import { C } from './theme.js';
 import { confColor, confLabel } from './utils.js';
+import { api } from './api.js';
 
 const OBJECTIVE_EXAMPLES = [
   'Jadi kreator yang dipercaya audiens di industriku',
@@ -29,6 +30,8 @@ export default function OnboardingWizard({ onComplete, onSkip, askProjectType = 
   const [krs, setKrs] = useState([{ label: '', baseline: '', target: '', unit: '' }]);
   const [confidences, setConfidences] = useState([]);
   const [err, setErr] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   const chooseType = (type) => {
     setProjectType(type);
@@ -70,6 +73,29 @@ export default function OnboardingWizard({ onComplete, onSkip, askProjectType = 
 
   const updateKr = (idx, field, value) =>
     setKrs(prev => prev.map((k, i) => i === idx ? { ...k, [field]: value } : k));
+
+  const generateWithAI = async () => {
+    if (!objective.trim()) { setErr('Tulis dulu Objective-mu sebelum generate AI.'); return; }
+    setAiLoading(true);
+    setAiError('');
+    setErr('');
+    try {
+      const { okr } = await api.generateOKR(objective);
+      if (okr.whyNow) setWhyNow(okr.whyNow);
+      if (okr.krs && okr.krs.length > 0) {
+        setKrs(okr.krs.map(k => ({
+          label: k.label || '',
+          baseline: String(k.baseline ?? 0),
+          target: String(k.target ?? 100),
+          unit: k.unit || '',
+        })));
+      }
+    } catch (e) {
+      setAiError(e.message || 'Gagal generate OKR. Coba isi manual.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,15,15,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
@@ -183,6 +209,18 @@ export default function OnboardingWizard({ onComplete, onSkip, askProjectType = 
                 placeholder="contoh: Kuartal ini window terbaik sebelum kompetitor launching"
                 style={inputStyle}
               />
+              {objective.trim().length >= 10 && (
+                <button
+                  onClick={generateWithAI}
+                  disabled={aiLoading}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 14, padding: '9px 16px', fontSize: 13, fontWeight: 600, border: `1px solid ${C.secondary}`, borderRadius: 7, cursor: aiLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', background: aiLoading ? C.bg : C.blueSoft, color: C.secondary }}
+                >
+                  <Sparkles size={14} /> {aiLoading ? 'Generating...' : 'Generate KRs with AI'}
+                </button>
+              )}
+              {aiError && (
+                <div style={{ marginTop: 10, padding: '8px 12px', background: C.redSoft, color: C.red, fontSize: 12, borderRadius: 6 }}>{aiError}</div>
+              )}
             </div>
           )}
 

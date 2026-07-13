@@ -1,10 +1,12 @@
 import React, { memo, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, TrendingUp } from 'lucide-react';
 import { C } from '../theme.js';
 import { calcKRProgress, confColor } from '../utils.js';
 import { InlineEdit, NumericEdit, ConfidenceSlider, DateEdit } from './UIComponents.jsx';
+import ConfidenceTrendChart from './ConfidenceTrendChart.jsx';
 
-const KRCard = memo(function KRCard({ kr, onChange, onRemove, accentColor }) {
+const KRCard = memo(function KRCard({ kr, onChange, onRemove, accentColor, checkins }) {
+  const [showTrend, setShowTrend] = useState(false);
   const progress = calcKRProgress(kr);
   const conf = kr.confidence;
   const color = confColor(conf);
@@ -16,12 +18,21 @@ const KRCard = memo(function KRCard({ kr, onChange, onRemove, accentColor }) {
         <div style={{ flex: 1 }}>
           <InlineEdit value={kr.label} onChange={(val) => onChange({ ...kr, label: val })} placeholder="Write a key result" fontSize={13.5} fontWeight={600} />
         </div>
+        <button onClick={() => setShowTrend(v => !v)} title="Show confidence trend" style={{ border: `1px solid ${showTrend ? color : C.border}`, background: showTrend ? color : 'none', cursor: 'pointer', color: showTrend ? C.white : C.muted, padding: 4, display: 'flex', borderRadius: 4 }}>
+          <TrendingUp size={13} />
+        </button>
         <button onClick={onRemove} style={{ border: 'none', background: 'none', cursor: 'pointer', color: C.muted, padding: 4, display: 'flex', borderRadius: 4 }}
           onMouseEnter={(e) => { e.currentTarget.style.background = C.redSoft; e.currentTarget.style.color = C.red; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.muted; }}>
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.style = C.muted; }}>
           <Trash2 size={14} />
         </button>
       </div>
+
+      {showTrend && (
+        <div style={{ borderTop: `1px solid ${C.borderLight}`, paddingTop: 8 }}>
+          <ConfidenceTrendChart krLabel={kr.label} krId={kr.id} checkins={checkins} />
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12.5, color: C.muted }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

@@ -230,6 +230,78 @@ async function handlePostCheckin(request, env) {
   return json({ id, ok: true });
 }
 
+async function handleGenerateOKR(request, env) {
+  const user = await getUserFromRequest(request, env.DB);
+  if (!user) return err('Not signed in', 401);
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body.goal !== 'string' || body.goal.trim().length < 5) {
+    return err('Please provide a goal description (at least 5 characters)');
+  }
+
+  const goal = body.goal.trim();
+  const prompt = `You are an OKR coach. Convert this raw goal into a structured OKR.
+
+Goal: "${goal}"
+
+Return ONLY valid JSON (no markdown, no explanation) with this exact structure:
+{
+  "objective": "A clear, inspiring objective statement (1-2 sentences)",
+  "whyNow": "Why this matters this quarter specifically (1 sentence)",
+  "krs": [
+    {
+      "label": "Measurable key result",
+      "type": "percent",
+      "baseline": 0,
+      "target": 100,
+      "current": 0,
+      "unit": "appropriate unit"
+    }
+  ]
+}
+
+Rules:
+- Create 2-3 Key Results, each measurable with a clear unit
+- Use "percent" type for all KRs (baseline → target progression)
+- Keep language concise and action-oriented
+- The objective should be aspirational, not a task
+- Each KR should have a realistic baseline and ambitious but achievable target`;
+
+  try {
+    const aiResult = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const responseText = aiResult.response || '';
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return err('AI could not generate a valid OKR. Please try again.');
+    }
+
+    const okr = JSON.parse(jsonMatch[0]);
+    if (!okr.objective || !Array.isArray(okr.krs) || okr.krs.length === 0) {
+      return err('AI response was incomplete. Please try again.');
+    }
+
+    return json({ okr });
+  } catch (e) {
+    return err(`AI generation failed: ${e.message}`);
+  }
+}
+
+async function handleUpdateReminderPref(request, env) {
+  const user = await getUserFromRequest(request, env.DB);
+  if (!user) return err('Not signed in', 401);
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body.enabled !== 'boolean') {
+    return err('Missing enabled field');
+  }
+  await env.DB.prepare('UPDATE users SET email_reminder_enabled = ? WHERE id = ?')
+    .bind(body.enabled ? 1 : 0, user.id).run();
+  return json({ ok: true, enabled: body.enabled });
+}
+
 const routes = {
   'POST /api/auth/register': handleRegister,
   'POST /api/auth/login': handleLogin,
@@ -237,6 +309,8 @@ const routes = {
   'GET /api/auth/me': handleMe,
   'GET /api/checkins': handleGetCheckins,
   'POST /api/checkins': handlePostCheckin,
+  'POST /api/ai/generate-okr': handleGenerateOKR,
+  'PATCH /api/user/reminder': handleUpdateReminderPref,
   'GET /api/projects': (request, env) => withUser(request, env, handleListProjects),
   'POST /api/projects': (request, env) => withUser(request, env, handleCreateProject),
 };
@@ -254,6 +328,91 @@ async function withUser(request, env, handler) {
   const user = await getUserFromRequest(request, env.DB);
   if (!user) return err('Not signed in', 401);
   return handler(request, env, user);
+}
+
+async function sendReminderEmail(env, to, name) {
+  const apiKey = env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.log('[Email] RESEND_API_KEY not set, skipping email');
+    return;
+  }
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="width: 48px; height: 48px; background: #E72D33; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+          <span style="font-size: 24px; color: white;">🎯</span>
+        </div>
+        <h1 style="font-size: 20px; font-weight: 800; color: #1F1F1F; margin: 0;">Weekly OKR Check-in Reminder</h1>
+      </div>
+      <p style="font-size: 14px; color: #7A7A7A; line-height: 1.6; margin: 0 0 20px;">
+        Hi ${name || 'there'}, it's Monday again! Time for your weekly confidence check-in.
+      </p>
+      <p style="font-size: 14px; color: #7A7A7A; line-height: 1.6; margin: 0 0 24px;">
+        Take 2 minutes to answer one honest question per Key Result: <strong style="color: #1F1F1F;">how confident are you that you'll reach this goal?</strong>
+      </p>
+      <div style="text-align: center;">
+        <a href="https://owntheway.my.id/app" style="display: inline-block; padding: 12px 24px; background: #E72D33; color: white; font-weight: 700; font-size: 14px; border-radius: 8px; text-decoration: none;">
+          Do Weekly Check-in →
+        </a>
+      </div>
+      <p style="font-size: 12px; color: #7A7A7A; margin: 24px 0 0; text-align: center;">
+        Confidence tracking is what makes OKR Board different from spreadsheets. Don't skip it!
+      </p>
+    </div>
+  `;
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'OTW <onboarding@owntheway.my.id>',
+        to: [to],
+        subject: '🎯 Weekly OKR Check-in Reminder',
+        html,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('[Email] Failed to send:', err);
+    }
+  } catch (e) {
+    console.error('[Email] Error:', e.message);
+  }
+}
+
+async function handleWeeklyReminders(env) {
+  console.log('[Cron] Running weekly reminder check...');
+
+  const { results: users } = await env.DB.prepare(
+    `SELECT id, email, name, email_reminder_enabled FROM users WHERE email_reminder_enabled = 1`
+  ).all();
+
+  console.log(`[Cron] Found ${users.length} users with reminders enabled`);
+
+  for (const user of users) {
+    const { results: projects } = await env.DB.prepare(
+      `SELECT project_id FROM project_members WHERE user_id = ?`
+    ).bind(user.id).all();
+
+    for (const { project_id } of projects) {
+      const latestCheckin = await env.DB.prepare(
+        `SELECT week_number FROM checkins WHERE scope = ? AND user_id = ? ORDER BY week_number DESC LIMIT 1`
+      ).bind(project_id, user.id).first();
+
+      const currentWeek = 1;
+      if (!latestCheckin || latestCheckin.week_number < currentWeek) {
+        await sendReminderEmail(env, user.email, user.name);
+        break;
+      }
+    }
+  }
+
+  console.log('[Cron] Weekly reminders complete');
 }
 
 export default {
@@ -282,5 +441,9 @@ export default {
     }
 
     return withSecurityHeaders(await env.ASSETS.fetch(request));
+  },
+
+  async scheduled(event, env) {
+    await handleWeeklyReminders(env);
   },
 };

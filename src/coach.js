@@ -1,4 +1,4 @@
-// Goal Coach v0 — rule-based, no LLM. Pure functions over data already in
+// Goal Coach v1 — rule-based, no LLM. Pure functions over data already in
 // memory (state + checkins), so this costs nothing and needs no API call.
 // Layering an LLM on top later (P3) means writing better sentences around
 // these same signals, not re-deriving them.
@@ -75,6 +75,24 @@ export function computeCoachInsights(objective, krs, checkins, weekNumber) {
         insights.push({
           severity: 'warning',
           message: `Only ${weeksLeft} week${weeksLeft === 1 ? '' : 's'} left this quarter and "${kr.label}" confidence is still ${kr.confidence.toFixed(2)} — consider re-scoping or focusing effort here.`,
+        });
+      }
+    });
+  }
+
+  // Rule F — projection miss: extrapolate current trajectory to quarter end.
+  // If the KR is likely to fall short of target at current velocity, warn early.
+  if (weekNumber >= 3) {
+    krs.forEach((kr) => {
+      if (kr.type !== 'percent') return;
+      const currentPct = calcKRProgress(kr);
+      const velocityPerWeek = currentPct / weekNumber;
+      const projectedFinal = velocityPerWeek * QUARTER_WEEKS;
+      if (projectedFinal < 90 && projectedFinal >= 0) {
+        const gap = 100 - Math.round(projectedFinal);
+        insights.push({
+          severity: 'warning',
+          message: `"${kr.label}" is projected to reach only ~${Math.round(projectedFinal)}% by quarter end at current velocity — ${gap}% short of target. Consider accelerating or re-scoping.`,
         });
       }
     });

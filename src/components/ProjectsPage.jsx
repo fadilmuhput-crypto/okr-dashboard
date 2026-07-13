@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { Plus, Trash2, UserPlus, Users, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, UserPlus, Users, ArrowLeft, Mail, Check } from 'lucide-react';
 import { C, PROJECT_COLORS, FREE_PROJECT_LIMIT } from '../theme.js';
 import { Modal } from './UIComponents.jsx';
 import { api } from '../api.js';
@@ -134,6 +134,21 @@ export function ProjectRow({ project, isActive, color, onSwitch, onRename, onDel
 }
 
 export function ProjectsPage({ user, projects, activeProjectId, onClose, onSwitch, onRename, onDelete, onUpgrade, onAdd }) {
+  const [reminderEnabled, setReminderEnabled] = useState(user.email_reminder_enabled !== 0);
+  const [savingReminder, setSavingReminder] = useState(false);
+
+  const toggleReminder = async () => {
+    setSavingReminder(true);
+    try {
+      await api.updateReminderPref(!reminderEnabled);
+      setReminderEnabled(v => !v);
+    } catch (e) {
+      console.error('Failed to update reminder preference');
+    } finally {
+      setSavingReminder(false);
+    }
+  };
+
   const padX = 24;
   return (
     <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 60, overflow: 'auto', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
@@ -148,6 +163,23 @@ export function ProjectsPage({ user, projects, activeProjectId, onClose, onSwitc
             {user.plan === 'free' ? 'Free plan' : 'Pro plan'}
           </span>
           <span>{projects.length}{user.plan === 'free' ? `/${FREE_PROJECT_LIMIT} owned` : ' projects'}</span>
+        </div>
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+          <Mail size={14} color={C.muted} />
+          <span style={{ fontSize: 12, color: C.text, flex: 1 }}>Weekly email reminder</span>
+          <button
+            onClick={toggleReminder}
+            disabled={savingReminder}
+            style={{
+              width: 36, height: 20, borderRadius: 10, border: 'none', cursor: savingReminder ? 'not-allowed' : 'pointer',
+              background: reminderEnabled ? C.green : C.border, position: 'relative', transition: 'background 0.2s',
+            }}
+          >
+            <div style={{
+              width: 16, height: 16, borderRadius: '50%', background: C.white, position: 'absolute', top: 2,
+              left: reminderEnabled ? 18 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+            }} />
+          </button>
         </div>
       </div>
       <div style={{ padding: `20px ${padX}px 40px ${padX}px`, maxWidth: 640, margin: '0 auto' }}>

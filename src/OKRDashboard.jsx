@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive } from 'lucide-react';
+import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2 } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
@@ -113,6 +113,7 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [viewScheme, setViewScheme] = useState('cards'); // 'cards' | 'tree'
+  const switchView = (v) => { setViewScheme(v); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const [showAddKR, setShowAddKR] = useState(false);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [deleteKRTarget, setDeleteKRTarget] = useState(null);
@@ -466,13 +467,13 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {activeProject && (
             <div style={{ display: 'inline-flex', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3 }}>
-              <button onClick={() => setViewScheme('cards')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'cards' ? C.white : 'transparent', color: viewScheme === 'cards' ? C.text : C.muted, boxShadow: viewScheme === 'cards' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+              <button onClick={() => switchView('cards')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'cards' ? C.white : 'transparent', color: viewScheme === 'cards' ? C.text : C.muted, boxShadow: viewScheme === 'cards' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
                 <ListChecks size={13} /> Cards
               </button>
-              <button onClick={() => setViewScheme('planner')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'planner' ? C.white : 'transparent', color: viewScheme === 'planner' ? C.text : C.muted, boxShadow: viewScheme === 'planner' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+              <button onClick={() => switchView('planner')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'planner' ? C.white : 'transparent', color: viewScheme === 'planner' ? C.text : C.muted, boxShadow: viewScheme === 'planner' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
                 <Calendar size={13} /> Planner
               </button>
-              <button onClick={() => setViewScheme('tree')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'tree' ? C.white : 'transparent', color: viewScheme === 'tree' ? C.text : C.muted, boxShadow: viewScheme === 'tree' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+              <button onClick={() => switchView('tree')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'tree' ? C.white : 'transparent', color: viewScheme === 'tree' ? C.text : C.muted, boxShadow: viewScheme === 'tree' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
                 <GitBranch size={13} /> Tree
               </button>
             </div>
@@ -512,13 +513,20 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         </div>
       </div>
 
-      {storageWarning && <div style={{ padding: '8px 24px', background: C.yellowSoft, color: '#8B6914', fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
-      {guestDiscardNote && <div style={{ padding: '8px 24px', background: C.blueSoft, color: C.secondary, fontSize: 12, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+      {storageWarning && <div style={{ padding: `8px ${padX}px`, background: C.yellowSoft, color: '#8B6914', fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
+      {guestDiscardNote && <div style={{ padding: `8px ${padX}px`, background: C.blueSoft, color: C.secondary, fontSize: 12, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <span>ℹ {guestDiscardNote}</span>
         <button onClick={() => setGuestDiscardNote('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.secondary, fontSize: 12, fontWeight: 700 }}>✕</button>
       </div>}
 
-      {loaded && projects.length === 0 ? (
+      {!loaded ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}>
+          <div style={{ textAlign: 'center' }}>
+            <Loader2 size={28} color={C.primary} className="animate-spin" style={{ marginBottom: 8 }} />
+            <div style={{ fontSize: 12.5, color: C.muted }}>Loading...</div>
+          </div>
+        </div>
+      ) : projects.length === 0 ? (
         <div style={{ padding: `20px ${padX}px 40px ${padX}px` }}>
           <NoProjectsState onAdd={() => setShowAddProject(true)} onWizard={() => setShowWizard(true)} />
         </div>

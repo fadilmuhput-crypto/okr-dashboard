@@ -12,14 +12,17 @@ const COACH_STYLE = {
 
 const CoachPanel = memo(function CoachPanel({ objective, krs, checkins, weekNumber }) {
   const insights = computeCoachInsights(objective, krs, checkins, weekNumber);
-  if (insights.length === 0) return null;
 
   return (
     <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
         <Lightbulb size={13} /> Coach Insights
       </div>
-      {insights.map((ins, i) => {
+      {insights.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: C.muted, padding: '4px 0' }}>
+          No insights yet — add KRs and check-ins to get coaching feedback.
+        </div>
+      ) : insights.map((ins, i) => {
         const meta = COACH_STYLE[ins.severity] || COACH_STYLE.info;
         return (
           <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', background: meta.bg, borderRadius: 7 }}>

@@ -77,7 +77,7 @@ export default function AuthScreen({ onAuthed, initialMode = 'login', guestSourc
           </div>
 
           {error && (
-            <div style={{ marginBottom: 14, padding: '9px 12px', background: C.redSoft, color: C.primary, fontSize: 12.5, borderRadius: 6 }}>
+            <div style={{ marginBottom: 14, padding: '9px 12px', background: C.redSoft, color: C.red, fontSize: 12.5, borderRadius: 6 }}>
               {error}
             </div>
           )}

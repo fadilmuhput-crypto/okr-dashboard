@@ -5,6 +5,7 @@ import { calcKRProgress, confColor, confLabel, timeliness, fmtDate } from '../ut
 import { InlineEdit, NumericEdit, ConfidenceSlider, DateEdit, TimelinessBadge } from './UIComponents.jsx';
 
 export function InitiativeRow({ ini, kr, onUpdateKR }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const toggle = () => {
     const done = ini.status === 'done';
     onUpdateKR({ ...kr, status: done ? 'active' : 'done', initiatives: kr.initiatives.map(i => i.id === ini.id ? { ...i, status: done ? 'active' : 'done', completed_at: done ? null : new Date().toISOString() } : i) });
@@ -24,11 +25,18 @@ export function InitiativeRow({ ini, kr, onUpdateKR }) {
       <TimelinessBadge ini={ini} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         <DateEdit value={ini.targetDate} onChange={(val) => onUpdateKR({ ...kr, initiatives: kr.initiatives.map(i => i.id === ini.id ? { ...i, targetDate: val } : i) })} label="Due" />
-        <button onClick={remove} style={{ border: 'none', background: 'none', cursor: 'pointer', color: C.muted, padding: 2, display: 'flex', borderRadius: 4 }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = C.redSoft; e.currentTarget.style.color = C.red; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.muted; }}>
-          <Trash2 size={12} />
-        </button>
+        {confirmDelete ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <button onClick={remove} style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, border: 'none', background: C.red, color: C.white, cursor: 'pointer' }}>Yes</button>
+            <button onClick={() => setConfirmDelete(false)} style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.border}`, background: C.white, color: C.muted, cursor: 'pointer' }}>No</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: C.muted, padding: 2, display: 'flex', borderRadius: 4 }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = C.redSoft; e.currentTarget.style.color = C.red; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.muted; }}>
+            <Trash2 size={12} />
+          </button>
+        )}
       </div>
     </div>
   );

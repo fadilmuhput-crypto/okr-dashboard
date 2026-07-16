@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle } from 'lucide-react';
+import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
@@ -15,6 +15,10 @@ import { Modal, InlineEdit, NumericEdit, ConfidenceSlider, DateEdit, TimelinessB
 import { EmptyState, NoProjectsState } from './components/EmptyState.jsx';
 import { ProjectsPage, ProjectNameForm, ProjectRow } from './components/ProjectsPage.jsx';
 import TreeView from './components/TreeView.jsx';
+import WeeklyPlanner from './components/WeeklyPlanner.jsx';
+import ShareDialog from './components/ShareDialog.jsx';
+import VisionBuilder from './components/VisionBuilder.jsx';
+import ArchiveView from './components/ArchiveView.jsx';
 
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
@@ -125,6 +129,9 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const [renameProjectTarget, setRenameProjectTarget] = useState(null);
   const [deleteProjectTarget, setDeleteProjectTarget] = useState(null);
   const [showProjectsPage, setShowProjectsPage] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showVisionBuilder, setShowVisionBuilder] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
   const saveTimer = useRef(null);
   const activeProjectRef = useRef(null);
 
@@ -253,12 +260,14 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   }));
 
   const addKR = (kr) => {
+    let added = false;
     updateProjectLocal(activeProject.id, (p) => {
       const obj = p.objectives.find(o => o.id === activeProject.activeObjectiveId);
       if (!obj || obj.krs.length >= 5) return p;
+      added = true;
       return { ...p, objectives: p.objectives.map(o => o.id === obj.id ? { ...o, krs: [...o.krs, { id: newId(obj.id + 'k', o.krs), ...kr }] } : o) };
     });
-    setShowAddKR(false);
+    if (added) setShowAddKR(false);
   };
 
   const confirmDeleteKR = () => {
@@ -460,6 +469,9 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
               <button onClick={() => setViewScheme('cards')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'cards' ? C.white : 'transparent', color: viewScheme === 'cards' ? C.text : C.muted, boxShadow: viewScheme === 'cards' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
                 <ListChecks size={13} /> Cards
               </button>
+              <button onClick={() => setViewScheme('planner')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'planner' ? C.white : 'transparent', color: viewScheme === 'planner' ? C.text : C.muted, boxShadow: viewScheme === 'planner' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+                <Calendar size={13} /> Planner
+              </button>
               <button onClick={() => setViewScheme('tree')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'tree' ? C.white : 'transparent', color: viewScheme === 'tree' ? C.text : C.muted, boxShadow: viewScheme === 'tree' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
                 <GitBranch size={13} /> Tree
               </button>
@@ -480,6 +492,16 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
               {checkins.some((c) => c.objectiveId === objective.id && c.weekNumber === activeProject.weekNumber) && (
                 <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 4, padding: '1px 5px', fontSize: 10 }}>✓</span>
               )}
+            </button>
+          )}
+          {objective && (
+            <button onClick={() => setShowShareDialog(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              <Link size={13} /> Share
+            </button>
+          )}
+          {objective && activeProject && (
+            <button onClick={() => setShowArchive(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              <Archive size={13} /> Archive
             </button>
           )}
           <button onClick={openCheckIn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><FileText size={13} /> Export Report</button>
@@ -539,6 +561,9 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                           <span style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 6 }}>Why now</span>
                           <InlineEdit value={objective.whyNow} onChange={(v) => updateObjField('whyNow', v)} placeholder="Why does this matter this quarter specifically?" fontSize={13} color={C.muted} multiline />
                         </div>
+                        <button onClick={() => setShowVisionBuilder(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, padding: '5px 10px', fontSize: 11.5, fontWeight: 600, border: `1px dashed ${C.border}`, borderRadius: 6, background: 'transparent', color: C.muted, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={(e) => { e.target.style.borderColor = C.primary; e.target.style.color = C.primary; }} onMouseLeave={(e) => { e.target.style.borderColor = C.border; e.target.style.color = C.muted; }}>
+                          <Sparkles size={12} /> Generate Vision with AI
+                        </button>
                       </div>
                       <div style={{ minWidth: isMobile ? 0 : 170, textAlign: isMobile ? 'left' : 'right' }}>
                         <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Overall confidence</div>
@@ -559,7 +584,9 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
                 <CoachPanel objective={objective} krs={krs} checkins={checkins} weekNumber={activeProject.weekNumber} />
 
-                {viewScheme === 'tree' ? (
+                {viewScheme === 'planner' ? (
+                  <WeeklyPlanner krs={krs} weekNumber={activeProject.weekNumber} />
+                ) : viewScheme === 'tree' ? (
                   <TreeView krs={krs} onUpdateKR={updateKR} onDeleteKR={(id) => setDeleteKRTarget(id)} />
                 ) : krs.length === 0 ? (
                   <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '24px 16px', textAlign: 'center' }}>
@@ -658,6 +685,10 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         />
       )}
 
+      {showShareDialog && activeProject && (
+        <ShareDialog projectId={activeProject.id} onClose={() => setShowShareDialog(false)} />
+      )}
+
       <Modal open={showCheckIn} onClose={() => setShowCheckIn(false)} title={`Weekly check-in${activeProject ? ` — Week ${activeProject.weekNumber}` : ''}`} maxWidth={760}>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>Edit before copying. Paste into Sheets / Notion / Slack.</div>
         <textarea value={checkInDraft} onChange={(e) => setCheckInDraft(e.target.value)} style={{ width: '100%', minHeight: 400, padding: 12, fontSize: 12, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', border: `1px solid ${C.border}`, borderRadius: 6, resize: 'vertical', outline: 'none', color: C.text, background: C.bg, lineHeight: 1.5, boxSizing: 'border-box' }} />
@@ -684,6 +715,23 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
           onClose={() => setShowWeeklyCheckIn(false)}
           onSubmitted={refreshCheckins}
         />
+      )}
+
+      {showVisionBuilder && (
+        <VisionBuilder
+          onClose={() => setShowVisionBuilder(false)}
+          onApplyObjective={(vision) => {
+            if (objective) {
+              updateObjField('objective', vision.vision);
+              updateObjField('whyNow', `Annual theme: ${vision.annualTheme}. Quarterly focus: ${vision.quarterlyFocus}`);
+            }
+            setShowVisionBuilder(false);
+          }}
+        />
+      )}
+
+      {showArchive && activeProject && (
+        <ArchiveView projectId={activeProject.id} krs={krs} onClose={() => setShowArchive(false)} />
       )}
     </div>
   );

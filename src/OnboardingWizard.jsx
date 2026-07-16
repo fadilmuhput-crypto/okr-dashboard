@@ -54,8 +54,9 @@ export default function OnboardingWizard({ onComplete, onSkip, askProjectType = 
   };
 
   const finish = () => {
+    const ts = Date.now();
     const cleanKrs = validKrs.map((k, i) => ({
-      id: `po1k${i + 1}`,
+      id: `wz_k${ts}_${i}`,
       label: k.label.trim(),
       type: 'percent',
       baseline: Number(k.baseline) || 0,
@@ -66,7 +67,7 @@ export default function OnboardingWizard({ onComplete, onSkip, askProjectType = 
       initiatives: [],
     }));
     onComplete(
-      { id: 'po1', objective: objective.trim(), whyNow: whyNow.trim(), krs: cleanKrs },
+      { id: `wz_o${ts}`, objective: objective.trim(), whyNow: whyNow.trim(), krs: cleanKrs },
       askProjectType ? { name: projectName.trim() || 'Personal', type: projectType || 'personal' } : undefined
     );
   };

@@ -23,7 +23,7 @@ const KRCard = memo(function KRCard({ kr, onChange, onRemove, accentColor, check
         </button>
         <button onClick={onRemove} style={{ border: 'none', background: 'none', cursor: 'pointer', color: C.muted, padding: 4, display: 'flex', borderRadius: 4 }}
           onMouseEnter={(e) => { e.currentTarget.style.background = C.redSoft; e.currentTarget.style.color = C.red; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.style = C.muted; }}>
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.muted; }}>
           <Trash2 size={14} />
         </button>
       </div>

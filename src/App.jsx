@@ -3,6 +3,7 @@ import OKRDashboard from './OKRDashboard.jsx';
 import AuthScreen from './AuthScreen.jsx';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import GuestPreview from './GuestPreview.jsx';
+import PublicShareView from './PublicShareView.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
 import { trackEvent } from './analytics.js';
@@ -30,6 +31,9 @@ export default function App() {
   const [authMode, setAuthMode] = useState(null); // null | 'login' | 'register'
   const [pendingGuestDraft, setPendingGuestDraft] = useState(null);
 
+  // Check if this is a public share route
+  const shareMatch = window.location.pathname.match(/^\/share\/([a-zA-Z0-9]+)$/);
+
   useEffect(() => {
     api.me().then((r) => setUser(r.user)).catch(() => setUser(null));
   }, []);
@@ -54,6 +58,11 @@ export default function App() {
   };
 
   if (user === undefined) return <LoadingScreen />;
+
+  // Public share route (no auth required)
+  if (shareMatch) {
+    return <PublicShareView token={shareMatch[1]} />;
+  }
 
   if (user === null) {
     if (authMode) {

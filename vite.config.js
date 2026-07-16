@@ -11,5 +11,7 @@ export default defineConfig({
       // `npx wrangler dev` on 8787 alongside `npm run dev` to exercise it locally.
       '/api': { target: 'http://localhost:8787', changeOrigin: true },
     },
+    // SPA fallback for /share/:token routes
+    fallback: '/index.html',
   },
 })

@@ -27,10 +27,21 @@ export const api = {
   createInvite: (projectId) => request(`/projects/${projectId}/invite`, { method: 'POST' }),
   acceptInvite: (code) => request(`/invites/${code}/accept`, { method: 'POST' }),
   getMembers: (projectId) => request(`/projects/${projectId}/members`),
+  getShareState: (projectId) => request(`/projects/${projectId}/share`),
 
   getCheckins: () => request('/checkins'),
   postCheckin: (checkin) => request('/checkins', { method: 'POST', body: JSON.stringify(checkin) }),
 
   generateOKR: (goal) => request('/ai/generate-okr', { method: 'POST', body: JSON.stringify({ goal }) }),
+  generateVision: (input) => request('/ai/generate-vision', { method: 'POST', body: JSON.stringify({ input }) }),
   updateReminderPref: (enabled) => request('/user/reminder', { method: 'PATCH', body: JSON.stringify({ enabled }) }),
+
+  togglePublicShare: (projectId, isPublic) =>
+    request(`/projects/${projectId}/public`, { method: 'POST', body: JSON.stringify({ public: isPublic }) }),
+  getPublicProject: (token) => request(`/share/${token}`),
+
+  archiveProject: (projectId, notes, grade) =>
+    request(`/projects/${projectId}/archive`, { method: 'POST', body: JSON.stringify({ notes, grade }) }),
+  listArchives: (projectId) => request(`/projects/${projectId}/archives`),
+  getArchive: (archiveId) => request(`/archives/${archiveId}`),
 };

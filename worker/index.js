@@ -290,6 +290,63 @@ Rules:
   }
 }
 
+async function handleGenerateVision(request, env) {
+  const user = await getUserFromRequest(request, env.DB);
+  if (!user) return err('Not signed in', 401);
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body.input !== 'string' || body.input.trim().length < 10) {
+    return err('Please describe your vision (at least 10 characters)');
+  }
+
+  const input = body.input.trim();
+  const prompt = `You are a strategic planning coach. The user will share a rough vision or aspiration for their team/company/project.
+
+User's vision: "${input}"
+
+Convert this into a structured vision document. Return ONLY valid JSON (no markdown, no explanation) with this exact structure:
+{
+  "vision": "A clear, inspiring 1-2 sentence vision statement that captures the desired future state",
+  "annualTheme": "A memorable theme for this year that aligns with the vision (e.g., 'Year of Growth', 'Foundation First')",
+  "strategicPriorities": [
+    "Priority 1: A broad strategic area of focus",
+    "Priority 2: Another strategic area",
+    "Priority 3: A third area if relevant"
+  ],
+  "quarterlyFocus": "A suggested focus for this specific quarter to start working toward the vision"
+}
+
+Rules:
+- Vision should be aspirational and forward-looking (1-2 years out)
+- Annual theme should be catchy and memorable (3-5 words)
+- Strategic priorities should be 2-4 broad areas (not specific tasks)
+- Quarterly focus should be concrete enough to drive OKRs
+- Keep language clear and jargon-free
+- If the input is vague, make reasonable interpretations`;
+
+  try {
+    const aiResult = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 600,
+      temperature: 0.7,
+    });
+
+    const responseText = aiResult.response || '';
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return err('AI could not generate a vision. Please try again.');
+    }
+
+    const vision = JSON.parse(jsonMatch[0]);
+    if (!vision.vision || !vision.annualTheme || !Array.isArray(vision.strategicPriorities)) {
+      return err('AI response was incomplete. Please try again.');
+    }
+
+    return json({ vision });
+  } catch (e) {
+    return err(`AI vision generation failed: ${e.message}`);
+  }
+}
+
 async function handleUpdateReminderPref(request, env) {
   const user = await getUserFromRequest(request, env.DB);
   if (!user) return err('Not signed in', 401);
@@ -302,6 +359,152 @@ async function handleUpdateReminderPref(request, env) {
   return json({ ok: true, enabled: body.enabled });
 }
 
+function getQuarterLabel(date) {
+  const d = date || new Date();
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  return `${d.getFullYear()}-Q${q}`;
+}
+
+async function handleArchiveProject(request, env, user, projectId) {
+  const member = await env.DB.prepare('SELECT role FROM project_members WHERE project_id = ? AND user_id = ?')
+    .bind(projectId, user.id).first();
+  if (!member) return err('Not a member of this project', 403);
+
+  const project = await env.DB.prepare('SELECT objectives_json, week_number FROM projects WHERE id = ?')
+    .bind(projectId).first();
+  if (!project) return err('Project not found', 404);
+
+  let objectives = [];
+  try { objectives = JSON.parse(project.objectives_json); } catch { objectives = []; }
+
+  const objective = objectives[0];
+  const krs = objective?.krs || [];
+  const overallConf = krs.length
+    ? Math.round((krs.reduce((s, k) => s + k.confidence, 0) / krs.length + Number.EPSILON) * 100) / 100
+    : 0;
+
+  const body = await request.json().catch(() => ({}));
+  const quarter = getQuarterLabel();
+  const notes = body?.notes || '';
+  const grade = body?.grade || null;
+
+  const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+  await env.DB.prepare(
+    `INSERT INTO okr_archives (id, project_id, user_id, quarter, objectives_json, week_number, overall_confidence, grade, notes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, projectId, user.id, quarter, project.objectives_json, project.week_number, overallConf, grade, notes, Date.now())
+    .run();
+
+  return json({ ok: true, id, quarter, overallConf });
+}
+
+async function handleListArchives(request, env, user, projectId) {
+  const member = await env.DB.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?')
+    .bind(projectId, user.id).first();
+  if (!member) return err('Not a member', 403);
+
+  const { results } = await env.DB.prepare(
+    `SELECT id, quarter, overall_confidence, grade, notes, created_at FROM okr_archives WHERE project_id = ? ORDER BY created_at DESC`
+  ).bind(projectId).all();
+
+  return json({ archives: results.map(r => ({
+    id: r.id,
+    quarter: r.quarter,
+    overallConfidence: r.overall_confidence,
+    grade: r.grade,
+    notes: r.notes,
+    createdAt: r.created_at,
+  }))});
+}
+
+async function handleGetArchive(request, env, user, archiveId) {
+  const archive = await env.DB.prepare(
+    `SELECT id, project_id, quarter, objectives_json, week_number, overall_confidence, grade, notes, created_at FROM okr_archives WHERE id = ?`
+  ).bind(archiveId).first();
+  if (!archive) return err('Archive not found', 404);
+
+  const member = await env.DB.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?')
+    .bind(archive.project_id, user.id).first();
+  if (!member) return err('Not a member', 403);
+
+  let objectives = [];
+  try { objectives = JSON.parse(archive.objectives_json); } catch { objectives = []; }
+
+  return json({
+    archive: {
+      id: archive.id,
+      quarter: archive.quarter,
+      objectives,
+      weekNumber: archive.week_number,
+      overallConfidence: archive.overall_confidence,
+      grade: archive.grade,
+      notes: archive.notes,
+      createdAt: archive.created_at,
+    },
+  });
+}
+
+async function handleGetShareState(request, env, user, projectId) {
+  const member = await env.DB.prepare('SELECT role FROM project_members WHERE project_id = ? AND user_id = ?')
+    .bind(projectId, user.id).first();
+  if (!member) return err('Not a member', 403);
+
+  const project = await env.DB.prepare('SELECT public_token, is_public FROM projects WHERE id = ?')
+    .bind(projectId).first();
+  if (!project) return err('Project not found', 404);
+
+  return json({
+    public: !!project.is_public,
+    token: project.public_token || null,
+    url: project.public_token ? `/share/${project.public_token}` : null,
+  });
+}
+
+async function handleTogglePublicShare(request, env, user, projectId) {
+  const member = await env.DB.prepare('SELECT role FROM project_members WHERE project_id = ? AND user_id = ?')
+    .bind(projectId, user.id).first();
+  if (!member || member.role !== 'owner') return err('Only the owner can toggle sharing', 403);
+
+  const body = await request.json().catch(() => null);
+  const isPublic = body?.public === true;
+
+  if (isPublic) {
+    const existing = await env.DB.prepare('SELECT public_token FROM projects WHERE id = ?').bind(projectId).first();
+    if (!existing.public_token) {
+      const token = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+      await env.DB.prepare('UPDATE projects SET public_token = ?, is_public = 1 WHERE id = ?')
+        .bind(token, projectId).run();
+      return json({ public: true, token, url: `/share/${token}` });
+    } else {
+      await env.DB.prepare('UPDATE projects SET is_public = 1 WHERE id = ?').bind(projectId).run();
+      return json({ public: true, token: existing.public_token, url: `/share/${existing.public_token}` });
+    }
+  } else {
+    await env.DB.prepare('UPDATE projects SET is_public = 0 WHERE id = ?').bind(projectId).run();
+    return json({ public: false });
+  }
+}
+
+async function handleGetPublicProject(request, env, token) {
+  const project = await env.DB.prepare(
+    `SELECT id, name, type, objectives, week_number, is_public FROM projects WHERE public_token = ? AND is_public = 1`
+  ).bind(token).first();
+  if (!project) return err('Project not found or not shared', 404);
+
+  let objectives = [];
+  try { objectives = JSON.parse(project.objectives); } catch { objectives = []; }
+
+  return json({
+    project: {
+      id: project.id,
+      name: project.name,
+      type: project.type,
+      objectives,
+      weekNumber: project.week_number,
+    },
+  });
+}
+
 const routes = {
   'POST /api/auth/register': handleRegister,
   'POST /api/auth/login': handleLogin,
@@ -310,6 +513,7 @@ const routes = {
   'GET /api/checkins': handleGetCheckins,
   'POST /api/checkins': handlePostCheckin,
   'POST /api/ai/generate-okr': handleGenerateOKR,
+  'POST /api/ai/generate-vision': handleGenerateVision,
   'PATCH /api/user/reminder': handleUpdateReminderPref,
   'GET /api/projects': (request, env) => withUser(request, env, handleListProjects),
   'POST /api/projects': (request, env) => withUser(request, env, handleCreateProject),
@@ -321,7 +525,13 @@ const paramRoutes = [
   ['DELETE', /^\/api\/projects\/([^/]+)$/, handleDeleteProject],
   ['POST', /^\/api\/projects\/([^/]+)\/invite$/, handleCreateInvite],
   ['GET', /^\/api\/projects\/([^/]+)\/members$/, handleListMembers],
+  ['GET', /^\/api\/projects\/([^/]+)\/share$/, handleGetShareState],
   ['POST', /^\/api\/invites\/([^/]+)\/accept$/, handleAcceptInvite],
+  ['POST', /^\/api\/projects\/([^/]+)\/public$/, handleTogglePublicShare],
+  ['POST', /^\/api\/projects\/([^/]+)\/archive$/, handleArchiveProject],
+  ['GET', /^\/api\/projects\/([^/]+)\/archives$/, handleListArchives],
+  ['GET', /^\/api\/archives\/([^/]+)$/, handleGetArchive],
+  ['GET', /^\/api\/share\/([^/]+)$/, handleGetPublicProject],
 ];
 
 async function withUser(request, env, handler) {
@@ -424,6 +634,14 @@ export default {
         const key = `${request.method} ${url.pathname}`;
         const handler = routes[key];
         if (handler) return withSecurityHeaders(await handler(request, env));
+
+        // Public share endpoint (no auth required)
+        if (request.method === 'GET') {
+          const shareMatch = url.pathname.match(/^\/api\/share\/([a-zA-Z0-9]+)$/);
+          if (shareMatch) {
+            return withSecurityHeaders(await handleGetPublicProject(request, env, shareMatch[1]));
+          }
+        }
 
         for (const [method, pattern, paramHandler] of paramRoutes) {
           if (request.method !== method) continue;

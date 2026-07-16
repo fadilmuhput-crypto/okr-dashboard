@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2 } from 'lucide-react';
+import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2, Menu } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
 import WeeklyCheckIn from './WeeklyCheckIn.jsx';
 import { C, STATUS_META, STATUS_ORDER, PROJECT_COLORS, MONTHS, CURRENT_YEAR, FREE_PROJECT_LIMIT, SAMPLE_PERSONAL_OBJECTIVES, SAMPLE_TEAM_OBJECTIVES } from './theme.js';
-import { calcKRProgress, confColor, confLabel, confEmoji, timeliness, fmtDate, newId } from './utils.js';
+import { calcKRProgress, confColor, confLabel, confEmoji, timeliness, fmtDate, newId, useIsMobile } from './utils.js';
 import CoachPanel from './components/CoachPanel.jsx';
 import ObjectiveTabs from './components/ObjectiveTabs.jsx';
 import ProjectSwitcher from './components/ProjectSwitcher.jsx';
@@ -20,15 +20,6 @@ import ShareDialog from './components/ShareDialog.jsx';
 import VisionBuilder from './components/VisionBuilder.jsx';
 import ArchiveView from './components/ArchiveView.jsx';
 
-const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return isMobile;
-};
 
 function AddKRForm({ onCancel, onAdd }) {
   const [label, setLabel] = useState('');
@@ -135,6 +126,8 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showVisionBuilder, setShowVisionBuilder] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
   const saveTimer = useRef(null);
   const activeProjectRef = useRef(null);
 
@@ -242,6 +235,14 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsaved]);
+
+  // Close mobile menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   const updateProjectLocal = (projectId, updater) => { setHasUnsaved(true); setProjects(prev => prev.map(p => p.id === projectId ? updater(p) : p)); };
 
@@ -471,7 +472,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
   return (
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: C.bg, minHeight: '100vh', color: C.text, fontSize: 14 }}>
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: isMobile ? '12px 14px' : '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 16, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: isMobile ? '12px 14px' : '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 16, position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Logo size={28} />
           <div>
@@ -479,7 +480,70 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
             <div style={{ fontSize: 11, color: C.muted }}>Objective → up to 5 KRs → Initiatives</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {isMobile ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {activeProject && (
+              <div style={{ display: 'inline-flex', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3 }}>
+                <button onClick={() => switchView('cards')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 8px', fontSize: 11.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'cards' ? C.white : 'transparent', color: viewScheme === 'cards' ? C.text : C.muted, boxShadow: viewScheme === 'cards' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+                  <ListChecks size={12} />
+                </button>
+                <button onClick={() => switchView('planner')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 8px', fontSize: 11.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'planner' ? C.white : 'transparent', color: viewScheme === 'planner' ? C.text : C.muted, boxShadow: viewScheme === 'planner' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+                  <Calendar size={12} />
+                </button>
+                <button onClick={() => switchView('tree')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 8px', fontSize: 11.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'tree' ? C.white : 'transparent', color: viewScheme === 'tree' ? C.text : C.muted, boxShadow: viewScheme === 'tree' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
+                  <GitBranch size={12} />
+                </button>
+              </div>
+            )}
+            <div ref={menuRef} style={{ position: 'relative' }}>
+              <button onClick={() => setMenuOpen(!menuOpen)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '7px 8px', background: menuOpen ? C.bg : C.white, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', color: C.text }}>
+                <Menu size={16} />
+              </button>
+              {menuOpen && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.1)', padding: 4, minWidth: 180, zIndex: 20 }}>
+                  {activeProject && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 12, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
+                      <Calendar size={12} />
+                      <span>Week</span>
+                      <select value={activeProject.weekNumber} onChange={(e) => { updateProjectLocal(activeProject.id, (p) => ({ ...p, weekNumber: parseInt(e.target.value, 10) })); setMenuOpen(false); }} style={{ fontSize: 12, fontWeight: 600, color: C.text, border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {Array.from({ length: 13 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                      <span style={{ fontSize: 10.5, color: C.muted }}>/ 13</span>
+                    </div>
+                  )}
+                  {objective && (
+                    <button onClick={() => { setShowWeeklyCheckIn(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
+                      <Check size={14} color={C.primary} /> Weekly Check-in
+                    </button>
+                  )}
+                  {objective && (
+                    <button onClick={() => { setShowShareDialog(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
+                      <Link size={14} color={C.muted} /> Share
+                    </button>
+                  )}
+                  {objective && activeProject && (
+                    <button onClick={() => { setShowArchive(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
+                      <Archive size={14} color={C.muted} /> Archive
+                    </button>
+                  )}
+                  <button onClick={() => { openCheckIn(); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
+                    <FileText size={14} color={C.muted} /> Export Report
+                  </button>
+                  <div style={{ height: 1, background: C.border, margin: '4px 6px' }} />
+                  <button onClick={() => { setShowProjectsPage(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
+                    <UserCircle size={14} color={C.muted} /> Projects
+                  </button>
+                  {user && (
+                    <button onClick={() => { onLogout(); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.red, textAlign: 'left' }}>
+                      Sign out
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {activeProject && (
             <div style={{ display: 'inline-flex', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3 }}>
               <button onClick={() => switchView('cards')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 6, cursor: 'pointer', background: viewScheme === 'cards' ? C.white : 'transparent', color: viewScheme === 'cards' ? C.text : C.muted, boxShadow: viewScheme === 'cards' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>
@@ -526,7 +590,8 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
           {user && (
             <button onClick={onLogout} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title={`Sign out (${user.email})`}>Sign out</button>
           )}
-        </div>
+          </div>
+        )}
       </div>
 
       {savedAt && (
@@ -578,7 +643,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
             {loaded && empty ? (
               <EmptyState onAdd={() => setShowAddKR(true)} onSample={loadSample} onWizard={projectIndex === 0 ? () => setShowWizard(true) : undefined} accentColor={accentColor} />
             ) : objective ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14 }}>
                 <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
                   <div style={{ padding: '18px 20px', borderTop: `3px solid ${accentColor}` }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 12 : 16, justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row' }}>

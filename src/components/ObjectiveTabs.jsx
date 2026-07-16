@@ -4,7 +4,7 @@ import { C } from '../theme.js';
 
 const ObjectiveTabs = memo(function ObjectiveTabs({ objectives, activeId, onSelect, onAdd, onDelete, accentColor }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
       {objectives.map((o, idx) => {
         const active = o.id === activeId;
         const title = o.objective.trim() || `Objective ${idx + 1} (untitled)`;

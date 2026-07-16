@@ -15,7 +15,7 @@ export function InitiativeRow({ ini, kr, onUpdateKR }) {
   const t = timeliness(ini);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, background: isDone ? C.greenSoft : C.white, opacity: isDone ? 0.75 : 1, border: `1px solid ${isDone ? C.greenSoft : C.borderLight}` }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, background: isDone ? C.greenSoft : C.white, opacity: isDone ? 0.75 : 1, border: `1px solid ${isDone ? C.greenSoft : C.borderLight}`, flexWrap: 'wrap' }}>
       <button onClick={toggle} style={{ border: `2px solid ${isDone ? C.green : C.border}`, borderRadius: 6, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: isDone ? C.green : 'transparent', flexShrink: 0, padding: 0 }}>
         {isDone && <Check size={11} color={C.white} strokeWidth={3} />}
       </button>

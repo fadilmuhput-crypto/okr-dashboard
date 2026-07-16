@@ -2,7 +2,18 @@
 // Eliminates duplication of calcKRProgress, confColor, confLabel,
 // timeliness, fmtDate, and newId across multiple files.
 
+import { useState, useEffect } from 'react';
 import { MONTHS } from './theme.js';
+
+export const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return isMobile;
+};
 
 export const QUARTER_WEEKS = 13;
 

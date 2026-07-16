@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Plus, Trash2, UserPlus, Users, ArrowLeft, Mail, Check } from 'lucide-react';
 import { C, PROJECT_COLORS, FREE_PROJECT_LIMIT } from '../theme.js';
+import { useIsMobile } from '../utils.js';
 import { Modal } from './UIComponents.jsx';
 import { api } from '../api.js';
 
@@ -149,10 +150,11 @@ export function ProjectsPage({ user, projects, activeProjectId, onClose, onSwitc
     }
   };
 
-  const padX = 24;
+  const isMobile = useIsMobile();
+  const padX = isMobile ? 14 : 24;
   return (
     <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 60, overflow: 'auto', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: '14px 24px', position: 'sticky', top: 0, zIndex: 1 }}>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: isMobile ? '12px 14px' : '14px 24px', position: 'sticky', top: 0, zIndex: 1 }}>
         <button onClick={onClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 0', fontSize: 13, fontWeight: 600, border: 'none', background: 'transparent', color: C.muted, cursor: 'pointer', marginBottom: 10 }}>
           <ArrowLeft size={15} /> Back to dashboard
         </button>

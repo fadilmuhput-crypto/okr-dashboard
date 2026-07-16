@@ -84,6 +84,10 @@ export default function WeeklyCheckIn({ objective, krs, scope, weekNumber, check
 
   const submit = async () => {
     setError('');
+    if (!accomplished.trim() && !challenges.trim() && !nextPriorities.trim()) {
+      setError('Please fill in at least one field before submitting.');
+      return;
+    }
     setSubmitting(true);
     try {
       const confidenceSnapshot = Object.fromEntries(krs.map((k) => [k.id, k.confidence]));

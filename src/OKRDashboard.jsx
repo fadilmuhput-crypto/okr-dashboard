@@ -121,6 +121,8 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const [checkInDraft, setCheckInDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const [storageWarning, setStorageWarning] = useState('');
+  const [savedAt, setSavedAt] = useState(null);
+  const [hasUnsaved, setHasUnsaved] = useState(false);
   const [guestDiscardNote, setGuestDiscardNote] = useState('');
   const [showWizard, setShowWizard] = useState(false);
   const [checkins, setCheckins] = useState([]);
@@ -224,6 +226,9 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
           weekNumber: proj.weekNumber,
         });
         setStorageWarning('');
+        setSavedAt(Date.now());
+        setHasUnsaved(false);
+        setTimeout(() => setSavedAt(null), 2000);
       } catch (e) {
         setStorageWarning('Could not save — changes may not persist.');
       }
@@ -231,7 +236,14 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [projects, activeProjectId, loaded]);
 
-  const updateProjectLocal = (projectId, updater) => setProjects(prev => prev.map(p => p.id === projectId ? updater(p) : p));
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handler = (e) => { if (hasUnsaved) { e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsaved]);
+
+  const updateProjectLocal = (projectId, updater) => { setHasUnsaved(true); setProjects(prev => prev.map(p => p.id === projectId ? updater(p) : p)); };
 
   const updateObjField = (field, value) => updateProjectLocal(activeProject.id, (p) => ({
     ...p, objectives: p.objectives.map(o => o.id === objective.id ? { ...o, [field]: value } : o)
@@ -291,11 +303,14 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const updateIniInKR = (krId, iniId, updates) => mutateKRInitiatives(krId, (inis) => inis.map(i => i.id === iniId ? { ...i, ...updates } : i));
   const deleteIniFromKR = (krId, iniId) => mutateKRInitiatives(krId, (inis) => inis.filter(i => i.id !== iniId));
 
-  const loadSample = () => updateProjectLocal(activeProject.id, (p) =>
-    p.type === 'personal'
-      ? { ...p, objectives: SAMPLE_PERSONAL_OBJECTIVES, activeObjectiveId: SAMPLE_PERSONAL_OBJECTIVES[0].id }
-      : { ...p, objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
-  );
+  const loadSample = () => {
+    if (!confirm('This will replace your current OKR with sample data. Continue?')) return;
+    updateProjectLocal(activeProject.id, (p) =>
+      p.type === 'personal'
+        ? { ...p, objectives: SAMPLE_PERSONAL_OBJECTIVES, activeObjectiveId: SAMPLE_PERSONAL_OBJECTIVES[0].id }
+        : { ...p, objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
+    );
+  };
 
   const completeWizard = async (obj, projectMeta) => {
     if (projects.length === 0) {
@@ -479,12 +494,13 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
             </div>
           )}
           {activeProject && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6 }} title="Quarter progress (13 weeks)">
               <Calendar size={13} color={C.muted} />
               <span style={{ fontSize: 12, color: C.muted }}>Week</span>
               <select value={activeProject.weekNumber} onChange={(e) => updateProjectLocal(activeProject.id, (p) => ({ ...p, weekNumber: parseInt(e.target.value, 10) }))} style={{ fontSize: 13, fontWeight: 600, color: C.text, border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
                 {Array.from({ length: 13 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
               </select>
+              <span style={{ fontSize: 10.5, color: C.muted }}>/ 13</span>
             </div>
           )}
           {objective && (
@@ -512,6 +528,12 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
           )}
         </div>
       </div>
+
+      {savedAt && (
+        <div style={{ position: 'fixed', bottom: 20, right: 20, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: C.green, color: C.white, borderRadius: 6, fontSize: 12, fontWeight: 600, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 50, animation: 'fadeIn 0.15s' }}>
+          <Check size={13} /> Saved
+        </div>
+      )}
 
       {storageWarning && <div style={{ padding: `8px ${padX}px`, background: C.yellowSoft, color: '#8B6914', fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
       {guestDiscardNote && <div style={{ padding: `8px ${padX}px`, background: C.blueSoft, color: C.secondary, fontSize: 12, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -633,7 +655,10 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       </Modal>
 
       <Modal open={!!deleteKRTarget} onClose={() => setDeleteKRTarget(null)} title="Delete Key Result?" maxWidth={420}>
-        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>This removes the KR <strong>and all Key Initiatives nested under it</strong>. This cannot be undone.</div>
+        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>
+          Delete <strong>"{krs.find(k => k.id === deleteKRTarget)?.label || 'Unknown'}"</strong>?
+          <div style={{ marginTop: 6, color: C.muted }}>This removes the KR <strong>and all Key Initiatives nested under it</strong>. This cannot be undone.</div>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={() => setDeleteKRTarget(null)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Cancel</button>
           <button onClick={confirmDeleteKR} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', background: C.red, color: C.white, borderRadius: 5, cursor: 'pointer' }}>Delete</button>
@@ -641,7 +666,10 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       </Modal>
 
       <Modal open={!!deleteObjTarget} onClose={() => setDeleteObjTarget(null)} title="Delete this Objective?" maxWidth={420}>
-        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>This removes the Objective <strong>and every Key Result and Key Initiative under it</strong>. This cannot be undone.</div>
+        <div style={{ fontSize: 13, color: C.text, marginBottom: 16 }}>
+          Delete objective <strong>"{objectives.find(o => o.id === deleteObjTarget)?.objective || 'Untitled'}"</strong>?
+          <div style={{ marginTop: 6, color: C.muted }}>This removes the Objective <strong>and every Key Result and Key Initiative under it</strong>. This cannot be undone.</div>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={() => setDeleteObjTarget(null)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 500, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 5, cursor: 'pointer' }}>Cancel</button>
           <button onClick={confirmDeleteObjective} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', background: C.red, color: C.white, borderRadius: 5, cursor: 'pointer' }}>Delete Objective</button>

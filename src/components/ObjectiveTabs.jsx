@@ -19,12 +19,12 @@ const ObjectiveTabs = memo(function ObjectiveTabs({ objectives, activeId, onSele
               {title}
             </button>
             {objectives.length > 1 && (
-              <button onClick={(e) => { e.stopPropagation(); onDelete(o.id); }} title="Delete objective" style={{
-                position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none', cursor: 'pointer', color: active ? C.white : C.muted,
-                display: 'flex', padding: 0, opacity: 0.8
+              <button onClick={(e) => { e.stopPropagation(); onDelete(o.id); }} title="Delete objective" aria-label="Delete objective" style={{
+                position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+                background: active ? 'rgba(255,255,255,0.2)' : C.bg, border: 'none', cursor: 'pointer', color: active ? C.white : C.muted,
+                display: 'flex', padding: 3, borderRadius: 4, opacity: 0.8
               }}>
-                <X size={12} />
+                <X size={13} />
               </button>
             )}
           </div>

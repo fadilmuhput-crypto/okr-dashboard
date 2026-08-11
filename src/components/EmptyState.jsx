@@ -1,8 +1,8 @@
 import React from 'react';
-import { Target, Plus, Sparkles } from 'lucide-react';
+import { Target, Plus, Sparkles, LayoutTemplate } from 'lucide-react';
 import { C } from '../theme.js';
 
-export function EmptyState({ onAdd, onSample, onWizard, accentColor }) {
+export function EmptyState({ onAdd, onSample, onWizard, onTemplates, accentColor }) {
   return (
     <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '48px 24px', textAlign: 'center' }}>
       <div style={{ width: 48, height: 48, borderRadius: 12, background: C.redSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Target size={22} color={C.primary} /></div>
@@ -15,6 +15,7 @@ export function EmptyState({ onAdd, onSample, onWizard, accentColor }) {
           <button onClick={onWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: accentColor, color: C.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Target size={14} /> Mulai dengan Panduan</button>
         )}
         <button onClick={onAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: onWizard ? C.white : accentColor, color: onWizard ? C.text : C.white, border: onWizard ? `1px solid ${C.border}` : 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Plus size={14} /> Add your first Key Result</button>
+        <button onClick={onTemplates} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><LayoutTemplate size={14} /> Browse templates</button>
         <button onClick={onSample} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Sparkles size={14} /> Load sample data</button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2, Menu, Sun, Moon } from 'lucide-react';
+import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2, Menu, Sun, Moon, Undo2, Redo2, LayoutTemplate } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
@@ -8,6 +8,8 @@ import { C, STATUS_META, STATUS_ORDER, PROJECT_COLORS, MONTHS, CURRENT_YEAR, FRE
 import { calcKRProgress, confColor, confLabel, confEmoji, timeliness, fmtDate, newId, useIsMobile } from './utils.js';
 import CoachPanel from './components/CoachPanel.jsx';
 import ObjectiveTabs from './components/ObjectiveTabs.jsx';
+import TemplateModal from './components/TemplateModal.jsx';
+import { OKR_TEMPLATES } from './templates.js';
 import ProjectSwitcher from './components/ProjectSwitcher.jsx';
 import KRCard from './components/KRCard.jsx';
 import { InitiativeRow, AddInitiativeForm } from './components/InitiativeRow.jsx';
@@ -126,11 +128,18 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showVisionBuilder, setShowVisionBuilder] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setThemeState] = useState(() => typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || 'light') : 'light');
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
   const menuRef = useRef(null);
   const saveTimer = useRef(null);
   const activeProjectRef = useRef(null);
+  const projectsRef = useRef([]);
+
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -251,7 +260,61 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
 
-  const updateProjectLocal = (projectId, updater) => { setHasUnsaved(true); setProjects(prev => prev.map(p => p.id === projectId ? updater(p) : p)); };
+  const updateProjectLocal = (projectId, updater) => {
+    const prev = projectsRef.current;
+    setUndoStack((s) => [...s.slice(-49), prev]);
+    setRedoStack([]);
+    setHasUnsaved(true);
+    setProjects((p) => p.map((proj) => proj.id === projectId ? updater(proj) : proj));
+  };
+
+  const undo = useCallback(() => {
+    setUndoStack((s) => {
+      if (!s.length) return s;
+      setRedoStack((rs) => [...rs.slice(-49), projectsRef.current]);
+      setProjects(s[s.length - 1]);
+      setHasUnsaved(true);
+      return s.slice(0, -1);
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setRedoStack((rs) => {
+      if (!rs.length) return rs;
+      setUndoStack((s) => [...s.slice(-49), projectsRef.current]);
+      setProjects(rs[rs.length - 1]);
+      setHasUnsaved(true);
+      return rs.slice(0, -1);
+    });
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && !e.altKey) {
+        const key = e.key.toLowerCase();
+        if (key === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
+        else if (key === 'z') { e.preventDefault(); undo(); }
+        else if (key === 'y') { e.preventDefault(); redo(); }
+        return;
+      }
+      if (mod) return;
+      const t = e.target;
+      const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+      if (typing) return;
+      switch (e.key.toLowerCase()) {
+        case 'c': e.preventDefault(); switchView('cards'); break;
+        case 'p': e.preventDefault(); switchView('planner'); break;
+        case 't': e.preventDefault(); switchView('tree'); break;
+        case 'n': e.preventDefault(); addObjective(); break;
+        case 'e': e.preventDefault(); openCheckIn(); break;
+        case '?': e.preventDefault(); setShowShortcuts(true); break;
+        default: break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [undo, redo, activeProject]);
 
   const updateObjField = (field, value) => updateProjectLocal(activeProject.id, (p) => ({
     ...p, objectives: p.objectives.map(o => o.id === objective.id ? { ...o, [field]: value } : o)
@@ -318,6 +381,44 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
         ? { ...p, objectives: SAMPLE_PERSONAL_OBJECTIVES, activeObjectiveId: SAMPLE_PERSONAL_OBJECTIVES[0].id }
         : { ...p, objectives: SAMPLE_TEAM_OBJECTIVES, activeObjectiveId: SAMPLE_TEAM_OBJECTIVES[0].id }
     );
+  };
+
+  const addFromTemplate = (tpl) => {
+    updateProjectLocal(activeProject.id, (p) => {
+      const newObjectives = tpl.objectives.map((t) => {
+        const objId = newId(p.id + 'o', p.objectives);
+        return {
+          id: objId,
+          objective: t.objective,
+          whyNow: t.whyNow || '',
+          krs: t.krs.map((k, ki) => {
+            const krId = newId(objId + 'k' + ki, []);
+            return {
+              id: krId,
+              label: k.label,
+              type: k.type || 'percent',
+              baseline: k.baseline ?? 0,
+              target: k.target ?? 100,
+              current: k.current ?? 0,
+              unit: k.unit || '%',
+              confidence: k.confidence ?? 0.5,
+              initiatives: (k.initiatives || []).map((i, ii) => ({
+                id: newId(krId + 'i' + ii, []),
+                title: i.title,
+                driver: 'Self',
+                contributors: [],
+                status: i.status || 'todo',
+                startDate: '',
+                endDate: '',
+              })),
+            };
+          }),
+        };
+      });
+      const first = newObjectives[0].id;
+      return { ...p, objectives: [...p.objectives, ...newObjectives], activeObjectiveId: first };
+    });
+    setShowTemplates(false);
   };
 
   const completeWizard = async (obj, projectMeta) => {
@@ -536,7 +637,16 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                   <button onClick={() => { openCheckIn(); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
                     <FileText size={14} color={C.muted} /> Export Report
                   </button>
+                  <button onClick={() => { setShowTemplates(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
+                    <LayoutTemplate size={14} color={C.muted} /> OKR Templates
+                  </button>
                   <div style={{ height: 1, background: C.border, margin: '4px 6px' }} />
+                  <button onClick={() => { undo(); setMenuOpen(false); }} disabled={!undoStack.length} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: undoStack.length ? 'pointer' : 'not-allowed', fontSize: 13, color: C.text, textAlign: 'left', opacity: undoStack.length ? 1 : 0.5 }}>
+                    <Undo2 size={14} color={C.muted} /> Undo
+                  </button>
+                  <button onClick={() => { redo(); setMenuOpen(false); }} disabled={!redoStack.length} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: redoStack.length ? 'pointer' : 'not-allowed', fontSize: 13, color: C.text, textAlign: 'left', opacity: redoStack.length ? 1 : 0.5 }}>
+                    <Redo2 size={14} color={C.muted} /> Redo
+                  </button>
                   <button onClick={() => { toggleTheme(); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
                     {theme === 'dark' ? <Sun size={14} color={C.muted} /> : <Moon size={14} color={C.muted} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
                   </button>
@@ -596,6 +706,15 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
             </button>
           )}
           <button onClick={openCheckIn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><FileText size={13} /> Export Report</button>
+          <button onClick={() => setShowTemplates(true)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="OKR templates"><LayoutTemplate size={15} /></button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={undo} disabled={!undoStack.length} title="Undo (⌘Z)" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 9px', background: C.white, color: undoStack.length ? C.text : C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: undoStack.length ? 'pointer' : 'not-allowed', opacity: undoStack.length ? 1 : 0.5 }}>
+              <Undo2 size={14} />
+            </button>
+            <button onClick={redo} disabled={!redoStack.length} title="Redo (⇧⌘Z)" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 9px', background: C.white, color: redoStack.length ? C.text : C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: redoStack.length ? 'pointer' : 'not-allowed', opacity: redoStack.length ? 1 : 0.5 }}>
+              <Redo2 size={14} />
+            </button>
+          </div>
           <button onClick={toggleTheme} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}</button>
           <button onClick={() => setShowProjectsPage(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Projects"><UserCircle size={15} /></button>
           {user && (
@@ -652,7 +771,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
           <div style={{ padding: `16px ${padX}px 40px ${padX}px` }}>
             {loaded && empty ? (
-              <EmptyState onAdd={() => setShowAddKR(true)} onSample={loadSample} onWizard={projectIndex === 0 ? () => setShowWizard(true) : undefined} accentColor={accentColor} />
+              <EmptyState onAdd={() => setShowAddKR(true)} onSample={loadSample} onTemplates={() => setShowTemplates(true)} onWizard={projectIndex === 0 ? () => setShowWizard(true) : undefined} accentColor={accentColor} />
             ) : objective ? (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14 }}>
                 <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
@@ -844,6 +963,35 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
       {showArchive && activeProject && (
         <ArchiveView projectId={activeProject.id} krs={krs} onClose={() => setShowArchive(false)} />
+      )}
+
+      {showTemplates && (
+        <TemplateModal templates={OKR_TEMPLATES} onAdd={addFromTemplate} onClose={() => setShowTemplates(false)} />
+      )}
+
+      {showShortcuts && (
+        <Modal open onClose={() => setShowShortcuts(false)} title="Keyboard Shortcuts" maxWidth={420}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[
+              ['⌘/Ctrl + Z', 'Undo'],
+              ['⌘/Ctrl + Shift + Z', 'Redo'],
+              ['C', 'Cards view'],
+              ['P', 'Planner view'],
+              ['T', 'Tree view'],
+              ['N', 'New objective'],
+              ['E', 'Export report'],
+              ['?', 'Show this help'],
+            ].map(([key, label]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 13, color: C.text }}>{label}</span>
+                <kbd style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 5, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, whiteSpace: 'nowrap' }}>{key}</kbd>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+            <button onClick={() => setShowShortcuts(false)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, border: `1px solid ${C.border}`, background: C.white, color: C.text, borderRadius: 6, cursor: 'pointer' }}><X size={14} /> Close</button>
+          </div>
+        </Modal>
       )}
     </div>
   );

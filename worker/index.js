@@ -6,6 +6,7 @@ import {
 import {
   handleListProjects, handleCreateProject, handleUpdateProject, handleDeleteProject,
   handleCreateInvite, handleAcceptInvite, handleListMembers,
+  handleSetAlignment, handleGetChildren,
 } from './projects.js';
 
 function json(data, init = {}) {
@@ -525,6 +526,8 @@ const paramRoutes = [
   ['DELETE', /^\/api\/projects\/([^/]+)$/, handleDeleteProject],
   ['POST', /^\/api\/projects\/([^/]+)\/invite$/, handleCreateInvite],
   ['GET', /^\/api\/projects\/([^/]+)\/members$/, handleListMembers],
+  ['PATCH', /^\/api\/projects\/([^/]+)\/alignment$/, handleSetAlignment],
+  ['GET', /^\/api\/projects\/([^/]+)\/children$/, handleGetChildren],
   ['GET', /^\/api\/projects\/([^/]+)\/share$/, handleGetShareState],
   ['POST', /^\/api\/invites\/([^/]+)\/accept$/, handleAcceptInvite],
   ['POST', /^\/api\/projects\/([^/]+)\/public$/, handleTogglePublicShare],

@@ -91,6 +91,8 @@ function shapeProject(row, role) {
     objectives,
     activeObjectiveId: row.active_objective_id,
     weekNumber: row.week_number,
+    parentId: row.parent_id || null,
+    parentObjectiveId: row.parent_objective_id || null,
     role,
     updatedAt: row.updated_at,
   };
@@ -223,4 +225,109 @@ export async function handleListMembers(request, env, user, projectId) {
      WHERE project_members.project_id = ?`
   ).bind(projectId).all();
   return json({ members: results });
+}
+
+// ---------- Alignment hierarchy (Company → Dept → Team → Individual) ----------
+
+function krProgress(kr) {
+  if (kr.type === 'deadline') {
+    const c = Number(kr.current);
+    return Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 0;
+  }
+  const baseline = Number(kr.baseline), target = Number(kr.target), current = Number(kr.current);
+  if (!Number.isFinite(baseline) || !Number.isFinite(target) || !Number.isFinite(current)) return 0;
+  if (baseline === target) return current >= target ? 100 : 0;
+  const raw = target > baseline
+    ? ((current - baseline) / (target - baseline)) * 100
+    : ((baseline - current) / (baseline - target)) * 100;
+  return raw;
+}
+
+function projectStats(objectives) {
+  const krs = [];
+  for (const o of objectives || []) {
+    for (const k of o.krs || []) krs.push(k);
+  }
+  if (krs.length === 0) return { avgConfidence: null, avgProgress: null, krCount: 0, objectiveCount: (objectives || []).length };
+  const avgConfidence = krs.reduce((s, k) => s + (Number(k.confidence) || 0), 0) / krs.length;
+  const avgProgress = krs.reduce((s, k) => s + krProgress(k), 0) / krs.length;
+  return { avgConfidence, avgProgress, krCount: krs.length, objectiveCount: (objectives || []).length };
+}
+
+export async function handleSetAlignment(request, env, user, projectId) {
+  const role = await isMember(env.DB, projectId, user.id);
+  if (role !== 'owner') return err('Only the owner can set alignment', 403);
+
+  const body = await request.json().catch(() => null);
+  if (!body) return err('Invalid JSON body');
+
+  const parentId = body.parentId ? String(body.parentId) : null;
+  const parentObjectiveId = body.parentObjectiveId ? String(body.parentObjectiveId) : null;
+
+  if (!parentId) {
+    await env.DB.prepare('UPDATE projects SET parent_id = NULL, parent_objective_id = NULL, updated_at = ? WHERE id = ?')
+      .bind(Date.now(), projectId).run();
+    return json({ ok: true });
+  }
+
+  if (parentId === projectId) return err('A project cannot be aligned to itself', 400);
+
+  // The user must be a member of the parent project too.
+  const parentRole = await isMember(env.DB, parentId, user.id);
+  if (!parentRole) return err('You must be a member of the parent project', 403);
+
+  const parent = await env.DB.prepare('SELECT objectives_json FROM projects WHERE id = ?').bind(parentId).first();
+  if (!parent) return err('Parent project not found', 404);
+
+  // parentObjectiveId must exist in the parent's objectives when provided.
+  if (parentObjectiveId) {
+    let parentObjectives = [];
+    try { parentObjectives = JSON.parse(parent.objectives_json); } catch (e) {}
+    if (!parentObjectives.some((o) => o.id === parentObjectiveId)) {
+      return err('Parent objective not found', 400);
+    }
+  }
+
+  // Cycle prevention: the parent (or any of its ancestors) must not be this project.
+  let cursor = parentId;
+  const seen = new Set([projectId]);
+  while (cursor) {
+    if (seen.has(cursor)) return err('Alignment would create a cycle', 400);
+    seen.add(cursor);
+    const p = await env.DB.prepare('SELECT parent_id FROM projects WHERE id = ?').bind(cursor).first();
+    cursor = p ? p.parent_id : null;
+  }
+
+  await env.DB.prepare('UPDATE projects SET parent_id = ?, parent_objective_id = ?, updated_at = ? WHERE id = ?')
+    .bind(parentId, parentObjectiveId, Date.now(), projectId).run();
+  return json({ ok: true });
+}
+
+export async function handleGetChildren(request, env, user, projectId) {
+  const role = await isMember(env.DB, projectId, user.id);
+  if (!role) return err('Not found', 404);
+
+  const { results } = await env.DB.prepare(
+    `SELECT projects.*, users.name AS owner_name FROM projects
+     LEFT JOIN users ON users.id = projects.owner_id
+     WHERE projects.parent_id = ?
+     ORDER BY projects.updated_at DESC`
+  ).bind(projectId).all();
+
+  const children = results.map((r) => {
+    let objectives = [];
+    try { objectives = JSON.parse(r.objectives_json); } catch (e) {}
+    const stats = projectStats(objectives);
+    return {
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      ownerName: r.owner_name,
+      parentObjectiveId: r.parent_objective_id,
+      updatedAt: r.updated_at,
+      ...stats,
+    };
+  });
+
+  return json({ children });
 }

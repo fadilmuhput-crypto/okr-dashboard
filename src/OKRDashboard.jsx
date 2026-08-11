@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2, Menu, Sun, Moon, Undo2, Redo2, LayoutTemplate } from 'lucide-react';
+import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2, Menu, Sun, Moon, Undo2, Redo2, LayoutTemplate, GitFork, CornerDownRight } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
@@ -21,6 +21,8 @@ import WeeklyPlanner from './components/WeeklyPlanner.jsx';
 import ShareDialog from './components/ShareDialog.jsx';
 import VisionBuilder from './components/VisionBuilder.jsx';
 import ArchiveView from './components/ArchiveView.jsx';
+import AlignmentModal from './components/AlignmentModal.jsx';
+import AlignedProjects from './components/AlignedProjects.jsx';
 
 
 function AddKRForm({ onCancel, onAdd }) {
@@ -129,6 +131,7 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const [showVisionBuilder, setShowVisionBuilder] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showAlignment, setShowAlignment] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setThemeState] = useState(() => typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || 'light') : 'light');
@@ -287,6 +290,12 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
       return rs.slice(0, -1);
     });
   }, []);
+
+  const saveAlignment = async (parentId, parentObjectiveId) => {
+    await api.setAlignment(activeProjectRef.current.id, parentId, parentObjectiveId);
+    const { projects: serverProjects } = await api.getProjects();
+    setProjects(serverProjects);
+  };
 
   useEffect(() => {
     const handler = (e) => {
@@ -640,6 +649,11 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                   <button onClick={() => { setShowTemplates(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
                     <LayoutTemplate size={14} color={C.muted} /> OKR Templates
                   </button>
+                  {activeProject && (
+                    <button onClick={() => { setShowAlignment(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
+                      <GitFork size={14} color={C.muted} /> Alignment
+                    </button>
+                  )}
                   <div style={{ height: 1, background: C.border, margin: '4px 6px' }} />
                   <button onClick={() => { undo(); setMenuOpen(false); }} disabled={!undoStack.length} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: undoStack.length ? 'pointer' : 'not-allowed', fontSize: 13, color: C.text, textAlign: 'left', opacity: undoStack.length ? 1 : 0.5 }}>
                     <Undo2 size={14} color={C.muted} /> Undo
@@ -707,6 +721,9 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
           )}
           <button onClick={openCheckIn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><FileText size={13} /> Export Report</button>
           <button onClick={() => setShowTemplates(true)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="OKR templates"><LayoutTemplate size={15} /></button>
+          {activeProject && (
+            <button onClick={() => setShowAlignment(true)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Alignment"><GitFork size={15} /></button>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button onClick={undo} disabled={!undoStack.length} title="Undo (⌘Z)" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 9px', background: C.white, color: undoStack.length ? C.text : C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: undoStack.length ? 'pointer' : 'not-allowed', opacity: undoStack.length ? 1 : 0.5 }}>
               <Undo2 size={14} />
@@ -750,6 +767,19 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
       ) : activeProject ? (
         <>
           <div style={{ padding: `20px ${padX}px 0 ${padX}px`, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {activeProject.parentId && (() => {
+              const parentProj = projects.find((p) => p.id === activeProject.parentId);
+              const parentObj = parentProj?.objectives.find((o) => o.id === activeProject.parentObjectiveId);
+              return (
+                <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: `${C.secondary}10`, border: `1px solid ${C.secondary}33`, borderRadius: 8, padding: '7px 12px', fontSize: 12.5, color: C.secondary }}>
+                  <CornerDownRight size={13} />
+                  <span>
+                    Aligned to <strong>{parentProj?.name || 'project'}</strong>{parentObj?.objective ? ` — ${parentObj.objective.trim()}` : ''}
+                  </span>
+                  <button onClick={() => setShowAlignment(true)} style={{ marginLeft: 2, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 700, color: C.secondary, textDecoration: 'underline' }}>Edit</button>
+                </div>
+              );
+            })()}
             <div style={{ alignSelf: 'flex-start' }}>
               <ProjectSwitcher
                 projects={projects}
@@ -837,6 +867,12 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                 )}
               </div>
             ) : null}
+
+            {activeProject.type === 'team' && (
+              <div style={{ marginTop: 16 }}>
+                <AlignedProjects projectId={activeProject.id} />
+              </div>
+            )}
 
             <div style={{ marginTop: 16, fontSize: 11, color: C.muted, textAlign: 'center' }}>
               Pairs with the <code style={{ background: C.white, padding: '1px 5px', borderRadius: 3, border: `1px solid ${C.border}`, fontSize: 10 }}>okr-coach</code> workflow — draft OKRs in Claude, track here.
@@ -967,6 +1003,15 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
 
       {showTemplates && (
         <TemplateModal templates={OKR_TEMPLATES} onAdd={addFromTemplate} onClose={() => setShowTemplates(false)} />
+      )}
+
+      {showAlignment && activeProject && (
+        <AlignmentModal
+          projects={projects}
+          currentProject={activeProject}
+          onSave={saveAlignment}
+          onClose={() => setShowAlignment(false)}
+        />
       )}
 
       {showShortcuts && (

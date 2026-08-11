@@ -28,6 +28,9 @@ export const api = {
   acceptInvite: (code) => request(`/invites/${code}/accept`, { method: 'POST' }),
   getMembers: (projectId) => request(`/projects/${projectId}/members`),
   getShareState: (projectId) => request(`/projects/${projectId}/share`),
+  setAlignment: (projectId, parentId, parentObjectiveId) =>
+    request(`/projects/${projectId}/alignment`, { method: 'PATCH', body: JSON.stringify({ parentId, parentObjectiveId }) }),
+  getChildren: (projectId) => request(`/projects/${projectId}/children`),
 
   getCheckins: () => request('/checkins'),
   postCheckin: (checkin) => request('/checkins', { method: 'POST', body: JSON.stringify(checkin) }),

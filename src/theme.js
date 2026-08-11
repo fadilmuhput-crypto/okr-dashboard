@@ -1,23 +1,51 @@
 // Shared color palette & design tokens — single source of truth.
-// Imported by every component; eliminates the 6-way copy-paste of `C`.
+// Values are CSS custom properties so `data-theme` on <html> switches
+// light/dark instantly without re-rendering (see index.css).
 
 export const C = {
-  primary: '#E72D33',
-  secondary: '#2E4DA0',
-  green: '#1E8449',
-  yellow: '#D68910',
-  red: '#C0392B',
-  text: '#1F1F1F',
-  muted: '#7A7A7A',
-  border: '#E0E0E0',
-  borderLight: '#F0F0F0',
-  bg: '#FAFAFA',
-  white: '#FFFFFF',
-  greenSoft: '#EAF5EE',
-  yellowSoft: '#FDF6E3',
-  redSoft: '#FBEAEA',
-  blueSoft: '#E8F0FE',
-  grayPill: '#EDEDED',
+  primary: 'var(--otw-primary)',
+  secondary: 'var(--otw-secondary)',
+  green: 'var(--otw-green)',
+  yellow: 'var(--otw-yellow)',
+  red: 'var(--otw-red)',
+  text: 'var(--otw-text)',
+  muted: 'var(--otw-muted)',
+  border: 'var(--otw-border)',
+  borderLight: 'var(--otw-borderLight)',
+  bg: 'var(--otw-bg)',
+  white: 'var(--otw-white)',
+  greenSoft: 'var(--otw-greenSoft)',
+  yellowSoft: 'var(--otw-yellowSoft)',
+  redSoft: 'var(--otw-redSoft)',
+  blueSoft: 'var(--otw-blueSoft)',
+  grayPill: 'var(--otw-grayPill)',
+  greenDeep: 'var(--otw-greenDeep)',
+  warnText: 'var(--otw-warnText)',
+};
+
+export const GRADES = {
+  A: { label: 'Exceptional', color: 'var(--otw-gradeA-color)', bg: 'var(--otw-gradeA-bg)' },
+  B: { label: 'Successful', color: 'var(--otw-gradeB-color)', bg: 'var(--otw-gradeB-bg)' },
+  C: { label: 'Partial', color: 'var(--otw-gradeC-color)', bg: 'var(--otw-gradeC-bg)' },
+  D: { label: 'Missed', color: 'var(--otw-gradeD-color)', bg: 'var(--otw-gradeD-bg)' },
+};
+
+export const setTheme = (theme) => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+  }
+  try { localStorage.setItem('otw-theme', theme); } catch (e) {}
+};
+
+export const initTheme = () => {
+  let theme = 'light';
+  try {
+    const saved = localStorage.getItem('otw-theme');
+    if (saved === 'dark' || saved === 'light') theme = saved;
+    else if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark';
+  } catch (e) {}
+  setTheme(theme);
+  return theme;
 };
 
 export const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

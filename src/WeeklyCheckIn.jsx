@@ -128,7 +128,7 @@ export default function WeeklyCheckIn({ objective, krs, scope, weekNumber, check
         ) : (
           <>
             {alreadyThisWeek && (
-              <div style={{ fontSize: 12, color: '#1E7A47', background: C.greenSoft, borderRadius: 7, padding: '8px 12px', marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: C.greenDeep, background: C.greenSoft, borderRadius: 7, padding: '8px 12px', marginBottom: 14 }}>
                 ✓ You already checked in for Week {weekNumber}. Submitting again will log an additional entry.
               </div>
             )}
@@ -161,7 +161,7 @@ export default function WeeklyCheckIn({ objective, krs, scope, weekNumber, check
             </div>
 
             {error && (
-              <div style={{ marginBottom: 14, padding: '9px 12px', background: '#FBEAEA', color: C.red, fontSize: 12.5, borderRadius: 6 }}>{error}</div>
+              <div style={{ marginBottom: 14, padding: '9px 12px', background: C.redSoft, color: C.red, fontSize: 12.5, borderRadius: 6 }}>{error}</div>
             )}
 
             <button onClick={submit} disabled={submitting} style={{

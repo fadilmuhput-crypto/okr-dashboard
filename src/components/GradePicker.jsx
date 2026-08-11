@@ -1,13 +1,13 @@
 import React, { memo, useMemo } from 'react';
 import { TrendingUp, AlertTriangle } from 'lucide-react';
-import { C } from '../theme.js';
+import { C, GRADES as GRADE_META } from '../theme.js';
 import { calcKRProgress, confColor } from '../utils.js';
 
 const GRADES = [
-  { grade: 'A', label: 'Exceptional', desc: 'Exceeded expectations — bold ambition achieved', color: '#16a34a', bg: '#dcfce7', threshold: 0.8 },
-  { grade: 'B', label: 'Successful', desc: 'Met most goals — solid progress with stretch', color: '#2563eb', bg: '#dbeafe', threshold: 0.6 },
-  { grade: 'C', label: 'Partial', desc: 'Made progress but fell short of key targets', color: '#d97706', bg: '#fef3c7', threshold: 0.35 },
-  { grade: 'D', label: 'Missed', desc: 'Little meaningful progress — needs rethinking', color: '#dc2626', bg: '#fee2e2', threshold: 0 },
+  { grade: 'A', label: GRADE_META.A.label, desc: 'Exceeded expectations — bold ambition achieved', color: GRADE_META.A.color, bg: GRADE_META.A.bg, threshold: 0.8 },
+  { grade: 'B', label: GRADE_META.B.label, desc: 'Met most goals — solid progress with stretch', color: GRADE_META.B.color, bg: GRADE_META.B.bg, threshold: 0.6 },
+  { grade: 'C', label: GRADE_META.C.label, desc: 'Made progress but fell short of key targets', color: GRADE_META.C.color, bg: GRADE_META.C.bg, threshold: 0.35 },
+  { grade: 'D', label: GRADE_META.D.label, desc: 'Little meaningful progress — needs rethinking', color: GRADE_META.D.color, bg: GRADE_META.D.bg, threshold: 0 },
 ];
 
 function calcAutoGrade(krs) {

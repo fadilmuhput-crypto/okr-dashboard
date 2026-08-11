@@ -1,6 +1,6 @@
-import React from 'react';
-import { LayoutDashboard, FileText, ArrowRight, Check, Gauge } from 'lucide-react';
-import { C } from './theme.js';
+import React, { useState } from 'react';
+import { LayoutDashboard, FileText, ArrowRight, Check, Gauge, Sun, Moon } from 'lucide-react';
+import { C, setTheme } from './theme.js';
 
 const goToApp = () => { window.location.href = '/app'; };
 
@@ -61,7 +61,7 @@ function ConfidenceDemo() {
               {r.tag} · {r.conf.toFixed(2)}
             </span>
           </div>
-          <div style={{ height: 6, background: '#F0F0F0', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: 6, background: 'var(--otw-borderLight)', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ width: `${r.conf * 100}%`, height: '100%', background: r.color, borderRadius: 3 }} />
           </div>
         </div>
@@ -75,6 +75,12 @@ function ConfidenceDemo() {
 
 export default function Landing() {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 720;
+  const [theme, setThemeState] = useState(() => typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || 'light') : 'light');
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    setThemeState(next);
+  };
 
   const features = [
     {
@@ -116,7 +122,12 @@ export default function Landing() {
           <Logo size={30} />
           <Wordmark />
         </div>
-        <CTAButton>Buka App</CTAButton>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={toggleTheme} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+          <CTAButton>Buka App</CTAButton>
+        </div>
       </nav>
 
       {/* Hero */}

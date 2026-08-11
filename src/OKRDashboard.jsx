@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2, Menu } from 'lucide-react';
+import { Target, Calendar, Trash2, Plus, X, Copy, Sparkles, FileText, Check, User, Users, Flag, CheckCircle2, Circle, PauseCircle, ChevronDown, ChevronRight, XCircle, PauseOctagon, Clock, ListChecks, ArrowRight, ArrowLeft, GitBranch, UserCircle, UserPlus, FolderKanban, BarChart3, AlertTriangle, Link, Archive, Loader2, Menu, Sun, Moon } from 'lucide-react';
 import OnboardingWizard from './OnboardingWizard.jsx';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
 import WeeklyCheckIn from './WeeklyCheckIn.jsx';
-import { C, STATUS_META, STATUS_ORDER, PROJECT_COLORS, MONTHS, CURRENT_YEAR, FREE_PROJECT_LIMIT, SAMPLE_PERSONAL_OBJECTIVES, SAMPLE_TEAM_OBJECTIVES } from './theme.js';
+import { C, STATUS_META, STATUS_ORDER, PROJECT_COLORS, MONTHS, CURRENT_YEAR, FREE_PROJECT_LIMIT, SAMPLE_PERSONAL_OBJECTIVES, SAMPLE_TEAM_OBJECTIVES, setTheme } from './theme.js';
 import { calcKRProgress, confColor, confLabel, confEmoji, timeliness, fmtDate, newId, useIsMobile } from './utils.js';
 import CoachPanel from './components/CoachPanel.jsx';
 import ObjectiveTabs from './components/ObjectiveTabs.jsx';
@@ -127,9 +127,16 @@ export default function OKRDashboard({ user, onLogout, pendingGuestDraft }) {
   const [showVisionBuilder, setShowVisionBuilder] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setThemeState] = useState(() => typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || 'light') : 'light');
   const menuRef = useRef(null);
   const saveTimer = useRef(null);
   const activeProjectRef = useRef(null);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    setThemeState(next);
+  };
 
   // Load order: accept a pending invite (if the URL carries one) → fetch
   // every project the user is a member of → else show the wizard for
@@ -530,6 +537,9 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
                     <FileText size={14} color={C.muted} /> Export Report
                   </button>
                   <div style={{ height: 1, background: C.border, margin: '4px 6px' }} />
+                  <button onClick={() => { toggleTheme(); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
+                    {theme === 'dark' ? <Sun size={14} color={C.muted} /> : <Moon size={14} color={C.muted} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                  </button>
                   <button onClick={() => { setShowProjectsPage(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.text, textAlign: 'left' }}>
                     <UserCircle size={14} color={C.muted} /> Projects
                   </button>
@@ -586,6 +596,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
             </button>
           )}
           <button onClick={openCheckIn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: C.white, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><FileText size={13} /> Export Report</button>
+          <button onClick={toggleTheme} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>{theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}</button>
           <button onClick={() => setShowProjectsPage(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title="Projects"><UserCircle size={15} /></button>
           {user && (
             <button onClick={onLogout} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }} title={`Sign out (${user.email})`}>Sign out</button>
@@ -600,7 +611,7 @@ _(2–3 sentences for leadership: where we are, what's at stake, what we're doin
         </div>
       )}
 
-      {storageWarning && <div style={{ padding: `8px ${padX}px`, background: C.yellowSoft, color: '#8B6914', fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
+      {storageWarning && <div style={{ padding: `8px ${padX}px`, background: C.yellowSoft, color: C.warnText, fontSize: 12, borderBottom: `1px solid ${C.border}` }}>⚠ {storageWarning}</div>}
       {guestDiscardNote && <div style={{ padding: `8px ${padX}px`, background: C.blueSoft, color: C.secondary, fontSize: 12, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <span>ℹ {guestDiscardNote}</span>
         <button onClick={() => setGuestDiscardNote('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.secondary, fontSize: 12, fontWeight: 700 }}>✕</button>

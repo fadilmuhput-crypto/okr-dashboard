@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { Sun, Moon } from 'lucide-react';
 import { Logo } from './Landing.jsx';
 import { api } from './api.js';
 import { trackEvent } from './analytics.js';
-import { C } from './theme.js';
+import { C, setTheme } from './theme.js';
 
 const inputStyle = {
   width: '100%', padding: '11px 13px', fontSize: 14, border: `1px solid ${C.border}`,
@@ -21,6 +22,13 @@ export default function AuthScreen({ onAuthed, initialMode = 'login', guestSourc
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [theme, setThemeState] = useState(() => typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || 'light') : 'light');
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    setThemeState(next);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -45,6 +53,11 @@ export default function AuthScreen({ onAuthed, initialMode = 'login', guestSourc
       background: C.bg, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       padding: 16,
     }}>
+      <div style={{ position: 'fixed', top: 14, right: 14, zIndex: 10 }}>
+        <button onClick={toggleTheme} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
+          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+        </button>
+      </div>
       <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: 32, maxWidth: 380, width: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 22, justifyContent: 'center' }}>
           <Logo size={30} />

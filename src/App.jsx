@@ -19,7 +19,7 @@ function readGuestDraft() {
 
 function LoadingScreen() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFAFA' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--otw-bg)' }}>
       <div style={{ opacity: 0.6 }}><Logo size={36} /></div>
     </div>
   );

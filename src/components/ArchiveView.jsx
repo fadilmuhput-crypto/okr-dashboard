@@ -1,17 +1,10 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Archive, Clock, TrendingUp, ChevronDown, ChevronRight, Eye, ArrowLeft, Loader2, Star, Plus } from 'lucide-react';
-import { C, STATUS_META } from '../theme.js';
+import { C, STATUS_META, GRADES as GRADE_META } from '../theme.js';
 import { calcKRProgress, confColor, confLabel, confEmoji, timeliness, fmtDate } from '../utils.js';
 import { api } from '../api.js';
 import { Modal } from './UIComponents.jsx';
 import GradePicker from './GradePicker.jsx';
-
-const GRADE_META = {
-  A: { label: 'Exceptional', color: '#16a34a', bg: '#dcfce7' },
-  B: { label: 'Successful', color: '#2563eb', bg: '#dbeafe' },
-  C: { label: 'Partial', color: '#d97706', bg: '#fef3c7' },
-  D: { label: 'Missed', color: '#dc2626', bg: '#fee2e2' },
-};
 
 function ArchiveDetail({ archive, onBack }) {
   const objective = archive.objectives[0];
